@@ -2,24 +2,21 @@ clear all
 close all
 clc
 
-%% init constants
-m = 5; %[kg]
+% file to load
+label = 'BLDC_sys_4000KV_60A';
+% label = 'BLDC_mot_2060KV_140A';
 
+%% init 
+% data path
+dataPath = [pwd, filesep, 'data', filesep];
+load([dataPath, label]);
+
+% car specs
+m = 5; %[kg]
 r = 0.05; %[m]
-%w = 20000; %[RPM]
 n = 1; % [-] transmission
 
-% electro
-kv = 2050; % 4000; %[RPM/V]
-
-R = 0.0006; %[Ohm]
-I = 140; %60; %[A]
-V = 15; %7.2; % [V] input voltage
-P = 2100; %[W]
-
-
 %% to SI
-%w = 2 * pi * w / 60; %[rad/S]
 kv = 2 * pi * kv /60; %rad/s]
 
 %% find velocity
