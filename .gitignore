@@ -1,1 +1,5 @@
 *.asv
+*/Adafruit_9DOF
+*/Adafruit_L3GD20_U
+*/Adafruit_LSM303DLHC
+*/Adafruit_Sensor
