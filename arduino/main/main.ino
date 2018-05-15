@@ -1,12 +1,11 @@
-#include <Wire.h>               // This library allows you to communicate with I2C / TWI devices. 
-#include <Adafruit_Sensor.h>    // adafruit sensors
-#include <Adafruit_LSM303_U.h>  // accel
-#include <Adafruit_L3GD20_U.h>  // mag
-#include <Adafruit_9DOF.h>      // ?
+#include <Wire.h>
+#include <Adafruit_Sensor.h>
+#include <Adafruit_LSM303_U.h>
+#include <Adafruit_L3GD20_U.h>
+#include <Adafruit_9DOF.h>
 #include <Servo.h>              // servo
 
 /* Assign a unique ID to the sensors */
-// Adafruit_9DOF                 dof   = Adafruit_9DOF();
 Adafruit_LSM303_Accel_Unified accel = Adafruit_LSM303_Accel_Unified(30301);
 Adafruit_LSM303_Mag_Unified   mag   = Adafruit_LSM303_Mag_Unified(30302);
 Adafruit_L3GD20_Unified       gyro  = Adafruit_L3GD20_Unified(20);
@@ -17,7 +16,7 @@ Servo myservo;  // create servo object to control a servo
 byte sensorPin = A0;      // PWM pin
 int servoPin = 3;
 
-double a = 0.5;
+double filterPosGoal = 1.0;
 
 double aServo;
 double velGoal = 0;
@@ -32,47 +31,42 @@ double errorTot;
 double scaling;
 
 /* steering */
-const double receiveDef = 1437;  // [us]
-const double receiveMin = 972;   // [us]
-const double receiveMax = 1970;  // [us]
+const double receiveMin = 972;   // [us] minimum width receiving steering signal
+const double receiveDef = 1437;  // [us] default width receiving steering signal
+const double receiveMax = 1970;  // [us] maximum width receiving steering signal
 
-const double steerAngleMin = 45; //[deg]
-const double steerAngleMax = 135; //[deg]
-const double steerAngleDef = 90; //[deg]
+const double steerAngleMin = 45; //[deg] minimum steering angle
+const double steerAngleDef = 90; //[deg] default steering angle
+const double steerAngleMax = 135;//[deg] maximum steering angle
 
 double posGoal = steerAngleDef;    // variable to store the servo position
 double posGoalPrev = posGoal;
 
 /* CONTROLLER CONSTANTS*/
-double gamma = 0.99;
-double alpha = 0.5;
-double kP = 2; //0.01;
+double filterP = 1;     // importantance curerent value
+double filterI = 0.90;  // importantance curerent value
+double filterI = 1;     // importantance curerent value
+double kP = 0.0; //0.01;
 double kI = 0.0; //0.5;
-double kD = 0.0000; //0.0001;
+double kD = 0.0; //0.0001;
 
 /* Timer variables */
 unsigned long t = 0;
 unsigned long tControlPrev = 0;
 unsigned long tPrintPrev = 0;
 unsigned long tBlinkPrev = 0;
+unsigned long jitter;
+// unsigned long tReadPrev;
 
 /* init frequencies */
-const long dtControl = 200;
-const long dtPrint = 200;
+const long dtControl = 20;
+const long dtPrint = 500;
 const long dtBlink = 100;
 //const long dtRead = 10;
 
-unsigned long jitter;
-unsigned long tReadPrev;
-
-boolean debug = true;
+boolean debug = false;
 int ledMode = LOW;
 
-/**************************************************************************/
-/*!
-    @brief  Initialises all the sensors used by this example
-*/
-/**************************************************************************/
 void displaySensorDetails(void)
 {
   sensor_t sensor;
@@ -113,32 +107,34 @@ void displaySensorDetails(void)
   delay(500);
 }
 
-/**************************************************************************/
-/*!
-    setup
-*/
-/**************************************************************************/
 void setup(void)
 {
   Serial.begin(115200);
+  Serial.println(F("Adafruit 9DOF Tester")); Serial.println("");
   
   /* Initialise the sensors */
-  Serial.println(F("====Initializing sensors====")); Serial.println("");
-  
   if(!accel.begin())
   {
-    /* There was a problem detecting the LSM303 ... check your connections */
+    /* There was a problem detecting the ADXL345 ... check your connections */
     Serial.println(F("Ooops, no LSM303 detected ... Check your wiring!"));
     while(1);
   }
   if(!mag.begin())
   {
-    // There was a problem detecting the LSM303 ... check your connections
+    /* There was a problem detecting the LSM303 ... check your connections */
     Serial.println("Ooops, no LSM303 detected ... Check your wiring!");
     while(1);
   }
-
+  if(!gyro.begin())
+  {
+    /* There was a problem detecting the L3GD20 ... check your connections */
+    Serial.print("Ooops, no L3GD20 detected ... Check your wiring or I2C ADDR!");
+    while(1);
+  }
+  
+  /* Display some basic information on this sensor */
   displaySensorDetails();
+
   Serial.println(F("Complete!")); Serial.println("");
   
   /* Initialise the servo */
@@ -154,18 +150,16 @@ void setup(void)
   pinMode(sensorPin, INPUT);
 }
 
-/**************************************************************************/
-/*!
-    @brief  Constantly check the roll/pitch/heading/altitude/temperature
-*/
-/**************************************************************************/
 void loop(void)
 {
-  t = millis();
 
+  t = millis(); // [ms]
+
+
+  /* Control loop */
   if ((t - tControlPrev) >= dtControl){
     
-    /* Activate led when too mhuch jitter*/
+    /* Activate led when too much jitter*/
     if ((t - tControlPrev) >= 1.5 * dtControl){
       ledMode = HIGH;
       if (debug) {
@@ -176,14 +170,17 @@ void loop(void)
 
     /* read receiver */
     receiverValue = pulseIn(sensorPin, HIGH); //[us] read pwm pin
-    
+
+    /* filter noise */
     if (abs(receiverValue - receiveDef) < 50){
       receiverValue = receiveDef;
     }
-    
+
+    /* convert reveiver value to desired steering angle with simple interpolation */
     posGoal = (receiverValue - receiveDef) * (steerAngleMax - steerAngleMin)/(receiveMax - receiveMin) + steerAngleDef;
 
-    posGoal = a * posGoal + (1-a) * posGoalPrev;
+    /* fitler desired steering angle */
+    posGoal = filterPosGoal * posGoal + (1 - filterPosGoal) * posGoalPrev;
     posGoalPrev = posGoal;
     
     // sensorValue = analogRead(sensorPin);  // [-] read analog pin
@@ -196,22 +193,23 @@ void loop(void)
     /* read gyro */
     sensors_event_t event;  // create sensor event
     gyro.getEvent(&event);  // get gyro sensor event
-    vel = event.gyro.z;     // extract velocity data around z axis.
+    vel = event.gyro.z;     // [rad/s] extract velocity data around z axis.
 
-    // filter velocity
-    if (abs(vel) < 2.0){
+    /* filter velocity */
+    if (abs(vel) <= 0.02){
       vel = 0;      
     }
 
     /* compute controler */
-    error = velGoal - vel;                                                            //[deg/s]
-    errorI = error * dtControl * 0.001 + gamma * errorI;                              //[deg]
-    errorD = (1 - alpha) * (error - errorPrev)/(dtControl * 0.001) + alpha * errorD;  //[deg/s^2]
-    errorTot = kP * error + kI * errorI + kD * errorD;                                //[-]
+    error = filterP * (velGoal - vel) + (1 - filterP) * error;                            //[rad/s]
+    errorI = error * dtControl * 0.001 + filterI * errorI;                                //[rad]
+    errorD = filterD * (error - errorPrev)/(dtControl * 0.001) + (1 - filterD) * errorD;  //[rad/s^2]
+    errorTot = kP * error + kI * errorI + kD * errorD;                                    //[-]
 
     /* apply scaling */
     scaling = -pow(abs(posGoal/90 - 1), 0.5) + 1;   // [-] get scaling factor for error value
-    errorTot = scaling * errorTot;        // [-] scale total error
+    errorTot = scaling * errorTot;                  // [-] scale total error
+    errorPrev = error;
     
     /* set error to 0 when outside certain input range
     if (posGoal > 100 || posGoal < 80){
@@ -228,18 +226,14 @@ void loop(void)
       aServo = steerAngleMax;
     }
 
-    errorPrev = error;  
     myservo.write(aServo);
   }
 
+  /* prints for debugging */
   if (debug){
       if ((t - tPrintPrev) > dtPrint){
         tPrintPrev = t;
-        if (false){
-          Serial.print(F("vel: "));
-          Serial.print(vel);
-          Serial.print("\t");              // prints a tab
-  
+        if (false){  
           Serial.print(F("vel goal: "));
           Serial.print(velGoal);
           Serial.print("\t");              // prints a tab
@@ -260,6 +254,11 @@ void loop(void)
           Serial.print(errorTot);
           Serial.print("\t");              // prints a tab
         }
+
+        Serial.print(F("vel: "));
+        Serial.print(vel);
+        Serial.print("\t");              // prints a tab
+        
         Serial.print(F("receiver: "));
         Serial.print(receiverValue);
         Serial.print("\t");              // prints a tab
@@ -275,15 +274,10 @@ void loop(void)
       }
     }
 
+  /* Blink LED if we do not meet desider control frequency */
   if ((t - tBlinkPrev) > dtBlink){
     tBlinkPrev = t;
     digitalWrite(LED_BUILTIN, ledMode);
     ledMode = LOW;
   }
-
-  //delay(10);
-  /*
-  if ((t - tReadPrev) > dtRead){ 
-  }
-  */
 }
