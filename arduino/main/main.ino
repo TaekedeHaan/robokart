@@ -14,9 +14,9 @@ Servo myservo;  // create servo object to control a servo
 
 /* init pins*/
 byte sensorPin = A0;      // PWM pin
-int servoPin = 3;
+int servoPin = 3;         // servo pin
 
-double filterPosGoal = 1.0;
+double filterPosGoal = 1.0; // importantance curerent value
 
 double aServo;
 double velGoal = 0;
@@ -44,10 +44,10 @@ double posGoalPrev = posGoal;
 
 /* CONTROLLER CONSTANTS*/
 double filterP = 1;     // importantance curerent value
-double filterI = 0.90;  // importantance curerent value
-double filterI = 1;     // importantance curerent value
+double filterI = 0.75;     // importantance curerent value
+double filterD = 1;     // importantance curerent value
 double kP = 0.0; //0.01;
-double kI = 0.0; //0.5;
+double kI = 300.0; //0.5;
 double kD = 0.0; //0.0001;
 
 /* Timer variables */
@@ -64,7 +64,7 @@ const long dtPrint = 500;
 const long dtBlink = 100;
 //const long dtRead = 10;
 
-boolean debug = false;
+boolean debug = true;
 int ledMode = LOW;
 
 void displaySensorDetails(void)
@@ -233,6 +233,11 @@ void loop(void)
   if (debug){
       if ((t - tPrintPrev) > dtPrint){
         tPrintPrev = t;
+
+        Serial.print(F("I error: "));
+        Serial.print(errorI);
+        Serial.print("\t");              // prints a tab
+        
         if (false){  
           Serial.print(F("vel goal: "));
           Serial.print(velGoal);
@@ -242,10 +247,6 @@ void loop(void)
           Serial.print(velGoal);
           Serial.print("\t");              // prints a tab
           
-          Serial.print(F("I error: "));
-          Serial.print(errorI);
-          Serial.print("\t");              // prints a tab
-          
           Serial.print(F("D error: "));
           Serial.print(errorD);
           Serial.print("\t");              // prints a tab
@@ -253,24 +254,24 @@ void loop(void)
           Serial.print(F("tot error: "));
           Serial.print(errorTot);
           Serial.print("\t");              // prints a tab
+
+          Serial.print(F("vel: "));
+          Serial.print(vel);
+          Serial.print("\t");              // prints a tab
+          
+          Serial.print(F("receiver: "));
+          Serial.print(receiverValue);
+          Serial.print("\t");              // prints a tab
+          
+          Serial.print(F("angle servo: "));
+          Serial.print(aServo);
+          Serial.print("\t");              // prints a tab
+  
+          Serial.print(F("jitter: "));
+          Serial.print(jitter);   
+          Serial.print(F(" [ms]"));
+          Serial.println("");
         }
-
-        Serial.print(F("vel: "));
-        Serial.print(vel);
-        Serial.print("\t");              // prints a tab
-        
-        Serial.print(F("receiver: "));
-        Serial.print(receiverValue);
-        Serial.print("\t");              // prints a tab
-        
-        Serial.print(F("angle servo: "));
-        Serial.print(aServo);
-        Serial.print("\t");              // prints a tab
-
-        Serial.print(F("jitter: "));
-        Serial.print(jitter);   
-        Serial.print(F(" [ms]"));
-        Serial.println("");
       }
     }
 
