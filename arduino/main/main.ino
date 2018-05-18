@@ -1,3 +1,5 @@
+#include <SPI.h>
+
 #include <Wire.h>
 #include <Adafruit_Sensor.h>
 #include <Adafruit_LSM303_U.h>
@@ -46,8 +48,8 @@ double posGoalPrev = posGoal;
 double filterP = 1;     // importantance curerent value
 double filterI = 0.75;     // importantance curerent value
 double filterD = 1;     // importantance curerent value
-double kP = 5.00; //10.0 is je Ku (oscillatie);
-double kI = 75; //300;
+double kP = 15.0; //0.01;
+double kI = 0.00; //300;
 double kD = 0.00; //0.0001;
 
 /* Timer variables */
@@ -200,15 +202,16 @@ void loop(void)
       vel = 0;      
     }
 
+    /* compute scaling */
+    scaling = -pow(abs(posGoal/90 - 1), 0.5) + 1;   // [-] get scaling factor for error value
+
     /* compute controler */
-    error = filterP * (velGoal - vel) + (1 - filterP) * error;                            //[rad/s]
-    errorI = error * dtControl * 0.001 + filterI * errorI;                                //[rad]
-    errorD = filterD * (error - errorPrev)/(dtControl * 0.001) + (1 - filterD) * errorD;  //[rad/s^2]
+    error  = scaling * filterP * (velGoal - vel) + (1 - filterP) * error;                            //[rad/s]
+    errorI = scaling * error * dtControl * 0.001 + filterI * errorI;                                //[rad]
+    errorD = scaling * filterD * (error - errorPrev)/(dtControl * 0.001) + (1 - filterD) * errorD;  //[rad/s^2]
     errorTot = kP * error + kI * errorI + kD * errorD;                                    //[-]
 
-    /* apply scaling */
-    scaling = -pow(abs(posGoal/90 - 1), 0.5) + 1;   // [-] get scaling factor for error value
-    errorTot = scaling * errorTot;                  // [-] scale total error
+    // errorTot = scaling * errorTot;                  // [-] scale total error
     errorPrev = error;
     
     /* set error to 0 when outside certain input range
