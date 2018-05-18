@@ -46,9 +46,9 @@ double posGoalPrev = posGoal;
 double filterP = 1;     // importantance curerent value
 double filterI = 0.75;     // importantance curerent value
 double filterD = 1;     // importantance curerent value
-double kP = 0.0; //0.01;
-double kI = 300.0; //0.5;
-double kD = 0.0; //0.0001;
+double kP = 15.0; //0.01;
+double kI = 0.00; //300;
+double kD = 0.00; //0.0001;
 
 /* Timer variables */
 unsigned long t = 0;
