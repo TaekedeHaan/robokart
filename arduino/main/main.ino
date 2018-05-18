@@ -46,8 +46,8 @@ double posGoalPrev = posGoal;
 double filterP = 1;     // importantance curerent value
 double filterI = 0.75;     // importantance curerent value
 double filterD = 1;     // importantance curerent value
-double kP = 15.0; //0.01;
-double kI = 0.00; //300;
+double kP = 5.00; //10.0 is je Ku (oscillatie);
+double kI = 75; //300;
 double kD = 0.00; //0.0001;
 
 /* Timer variables */
