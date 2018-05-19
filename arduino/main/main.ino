@@ -30,7 +30,10 @@ double errorI = 0;
 double errorD = 0;
 double errorPrev = 0;
 double errorTot;
-double scaling;
+double scaling = 0;
+double scaleIntenstity = 1;
+
+double velTreshold = 0.02;
 
 /* steering */
 const double receiveMin = 972;   // [us] minimum width receiving steering signal
@@ -41,16 +44,16 @@ const double steerAngleMin = 45; //[deg] minimum steering angle
 const double steerAngleDef = 90; //[deg] default steering angle
 const double steerAngleMax = 135;//[deg] maximum steering angle
 
-double posGoal = steerAngleDef;    // variable to store the servo position
-double posGoalPrev = posGoal;
+double posGoal = steerAngleDef;   // variable to store the servo position. initialize in middle
+double posGoalPrev = posGoal;     // variable to store previous pos goal
 
 /* CONTROLLER CONSTANTS*/
 double filterP = 1;     // importantance curerent value
-double filterI = 0.75;     // importantance curerent value
-double filterD = 1;     // importantance curerent value
-double kP = 15.0; //0.01;
-double kI = 0.00; //300;
-double kD = 0.00; //0.0001;
+double filterI = 0.95;   // 0.75  // importantance curerent value
+double filterD = 1;     // // importantance curerent value
+double kP = 5; // 7.5; //5.00;
+double kI = 100; //50;
+double kD = 0.5; //0.5;
 
 /* Timer variables */
 unsigned long t = 0;
@@ -198,12 +201,12 @@ void loop(void)
     vel = event.gyro.z;     // [rad/s] extract velocity data around z axis.
 
     /* filter velocity */
-    if (abs(vel) <= 0.02){
+    if (abs(vel) <= velTreshold){
       vel = 0;      
     }
 
     /* compute scaling */
-    scaling = -pow(abs(posGoal/90 - 1), 0.5) + 1;   // [-] get scaling factor for error value
+    scaling = -pow(abs(posGoal/90 - 1), scaleIntenstity) + 1;   // [-] get scaling factor for error value
 
     /* compute controler */
     error  = scaling * filterP * (velGoal - vel) + (1 - filterP) * error;                            //[rad/s]
