@@ -1,34 +1,44 @@
-// color swirl! connect an RGB LED to the PWM pins as indicated
-// in the #defines
-// public domain, enjoy!
- 
-#define REDPIN 5
-#define GREENPIN 6
-#define BLUEPIN 3
+// set pins
+#define RPIN 5
+#define GPIN 6
+#define BPIN 3
 #define ESCPIN A0      // pin from receiver
 
-#define FADESPEED 5     // make this higher to slow down
-#define DTPRINT 200     // make this higher to slow down
+// set prefquencies
+#define DTPRINT 200   // [ms] for printing
+#define DTLED 100     // [ms] for updating LEDs
+#define DTREAD 100    // [ms] for reading velocity value
 
+// recever output PWM width
 #define AVG 1500
 #define MAX 2000
 #define MIN 1000
 
-long t = 0;
-long tPrintPrev = 0;
+// led strip const
+#define OUTMAX 255
+#define OUTMIN 0
+#define SLOPE 255/500
+#define LEDINT 0.95
 
+unsigned long t;
+unsigned long tPrintPrev = 0;
+unsigned long tReadVelPrev = 0;
+unsigned long tLedPrev = 0;
+
+// init RGB
 int r;
 int g;
 int b;
 
-double escValue;
+// inputs
+double velWidth;
  
 void setup() {
   Serial.begin(115200);
   
-  pinMode(REDPIN, OUTPUT);
-  pinMode(GREENPIN, OUTPUT);
-  pinMode(BLUEPIN, OUTPUT);
+  pinMode(RPIN, OUTPUT);
+  pinMode(GPIN, OUTPUT);
+  pinMode(BPIN, OUTPUT);
   pinMode(ESCPIN, INPUT);
 
   Serial.println(F("Complete setup!")); Serial.println("");
@@ -37,48 +47,40 @@ void setup() {
  
 void loop() {
 
-  /* read receiver, pulse length from 1ms (zero throttle) to 2ms (full throttle) */
-  escValue = pulseIn(ESCPIN, HIGH); //[us] read pwm pin
-
- /*
-  // fade from blue to violet
-  for (r = 0; r < 256; r++) { 
-    analogWrite(REDPIN, r);
-    delay(FADESPEED);
-  } 
-  // fade from violet to red
-  for (b = 255; b > 0; b--) { 
-    analogWrite(BLUEPIN, b);
-    delay(FADESPEED);
-  } 
-  // fade from red to yellow
-  for (g = 0; g < 256; g++) { 
-    analogWrite(GREENPIN, g);
-    delay(FADESPEED);
-  } 
-  // fade from yellow to green
-  for (r = 255; r > 0; r--) { 
-    analogWrite(REDPIN, r);
-    delay(FADESPEED);
-  } 
-  // fade from green to teal
-  for (b = 0; b < 256; b++) { 
-    analogWrite(BLUEPIN, b);
-    delay(FADESPEED);
-  } 
-  // fade from teal to blue
-  for (g = 255; g > 0; g--) { 
-    analogWrite(GREENPIN, g);
-    delay(FADESPEED);
-  } 
-  */
-
   t = millis();
+
+  if (t - tReadVelPrev > DTREAD){
+    tReadVelPrev = t;
+    
+    /* read receiver, pulse length from 1ms (zero throttle) to 2ms (full throttle) */
+    velWidth = pulseIn(ESCPIN, HIGH); //[us] read pwm pin
+  }
+
+  if (t - tLedPrev > DTLED){
+    tLedPrev = t;
+    
+    /* color function */
+    r = OUTMAX + SLOPE * pow(velWidth - MAX, LEDINT);
+    g = OUTMAX - SLOPE * pow(abs(-velWidth + AVG), LEDINT);
+    b = OUTMAX + SLOPE * pow(-velWidth + MIN, LEDINT);
+  
+    /* saturate */
+    r = min(OUTMAX, max(OUTMIN, r));
+    g = min(OUTMAX, max(OUTMIN, g));
+    b = min(OUTMAX, max(OUTMIN, b));
+
+    /* output new LED values */
+    analogWrite(RPIN, r);
+    analogWrite(GPIN, g);
+    analogWrite(BPIN, b);
+  }
   
   // print 
   if (t - tPrintPrev > DTPRINT){
-    Serial.print(F("esc value: "));
-    Serial.print(escValue);   
+    tPrintPrev = t;
+    
+    Serial.print(F("esc width: "));
+    Serial.print(velWidth);   
     Serial.print(F(" [ns]"));
     Serial.println("");
   }
