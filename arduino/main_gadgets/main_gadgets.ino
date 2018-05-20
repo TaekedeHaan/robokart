@@ -20,6 +20,8 @@
 #define SLOPE 255/500
 #define LEDINT 0.95
 
+# define DEBUG true
+
 unsigned long t;
 unsigned long tPrintPrev = 0;
 unsigned long tReadVelPrev = 0;
@@ -74,14 +76,29 @@ void loop() {
     analogWrite(GPIN, g);
     analogWrite(BPIN, b);
   }
-  
-  // print 
-  if (t - tPrintPrev > DTPRINT){
-    tPrintPrev = t;
-    
-    Serial.print(F("esc width: "));
-    Serial.print(velWidth);   
-    Serial.print(F(" [ns]"));
-    Serial.println("");
+
+  // print
+  if (DEBUG) {
+    if (t - tPrintPrev > DTPRINT){
+      tPrintPrev = t;
+      
+      Serial.print(F("esc width: "));
+      Serial.print(velWidth);   
+      Serial.print(F(" [ns]"));
+
+      Serial.print(F("r: "));
+      Serial.print(r);   
+      Serial.print("\t");              // prints a tab
+
+      Serial.print(F("g: "));
+      Serial.print(g);   
+      Serial.print("\t");              // prints a tab
+
+      Serial.print(F("b: "));
+      Serial.print(b);   
+      Serial.print("\t");              // prints a tab
+
+      Serial.println("");
+    }
   }
 }
