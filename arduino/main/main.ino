@@ -30,30 +30,33 @@ double errorI = 0;
 double errorD = 0;
 double errorPrev = 0;
 double errorTot;
-double scaling = 0;
+
+double scaling;
+double scalingPrev = 0;
+double scalingIncrement = 0.025;
 double scaleIntenstity = 1;
 
-double velTreshold = 0.02;
+double velTreshold = 0.02; // below treshold vel is set to 0
 
 /* steering */
-const double receiveMin = 972;   // [us] minimum width receiving steering signal
-const double receiveDef = 1437;  // [us] default width receiving steering signal
-const double receiveMax = 1970;  // [us] maximum width receiving steering signal
+const double RECEIVEWIDTHMIN = 972;   // [us] minimum width receiving steering signal
+const double RECEIVEWIDTHAVG = 1437;  // [us] default width receiving steering signal
+const double RECEIVEWIDTHMAX = 1970;  // [us] maximum width receiving steering signal
 
-const double steerAngleMin = 45; //[deg] minimum steering angle
-const double steerAngleDef = 90; //[deg] default steering angle
-const double steerAngleMax = 135;//[deg] maximum steering angle
-
-double posGoal = steerAngleDef;   // variable to store the servo position. initialize in middle
-double posGoalPrev = posGoal;     // variable to store previous pos goal
+const double STEERANGLEMIN = 45; //[deg] minimum steering angle
+const double STEERANGLEAVG = 90; //[deg] default steering angle
+const double STEERANGLEMAX = 135;//[deg] maximum steering angle
 
 /* CONTROLLER CONSTANTS*/
-double filterP = 1;     // importantance curerent value
-double filterI = 0.95;   // 0.75  // importantance curerent value
-double filterD = 1;     // // importantance curerent value
-double kP = 5; // 7.5; //5.00;
-double kI = 100; //50;
-double kD = 0.5; //0.5;
+const double filterP = 1;     // importantance curerent value
+const double filterI = 0.95;   // 0.75  // importantance curerent value
+const double filterD = 1;     // // importantance curerent value
+const double KP = 5; // 7.5; //5.00;
+const double KI = 100; //50;
+const double KD = 0.5; //0.5;
+
+double posGoal = STEERANGLEAVG;   // variable to store the servo position. initialize in middle
+double posGoalPrev = posGoal;     // variable to store previous pos goal
 
 /* Timer variables */
 unsigned long t = 0;
@@ -177,19 +180,16 @@ void loop(void)
     receiverValue = pulseIn(sensorPin, HIGH); //[us] read pwm pin
 
     /* filter noise */
-    if (abs(receiverValue - receiveDef) < 50){
-      receiverValue = receiveDef;
+    if (abs(receiverValue - RECEIVEWIDTHAVG) < 50){
+      receiverValue = RECEIVEWIDTHAVG;
     }
 
     /* convert reveiver value to desired steering angle with simple interpolation */
-    posGoal = (receiverValue - receiveDef) * (steerAngleMax - steerAngleMin)/(receiveMax - receiveMin) + steerAngleDef;
+    posGoal = (receiverValue - RECEIVEWIDTHAVG) * (STEERANGLEMAX - STEERANGLEMIN)/(RECEIVEWIDTHMAX - RECEIVEWIDTHMIN) + STEERANGLEAVG;
 
     /* fitler desired steering angle */
     posGoal = filterPosGoal * posGoal + (1 - filterPosGoal) * posGoalPrev;
     posGoalPrev = posGoal;
-    
-    // sensorValue = analogRead(sensorPin);  // [-] read analog pin
-    // posGoal = (sensorValue/1024) * 180;   // [deg] convert to degrees 
 
     /* updatre timing */
     jitter = t - tControlPrev - dtControl;  //[ms]
@@ -208,28 +208,28 @@ void loop(void)
     /* compute scaling */
     scaling = -pow(abs(posGoal/90 - 1), scaleIntenstity) + 1;   // [-] get scaling factor for error value
 
+    /* when we exit a corner we dont want the PID to directly kick in */
+    if (scaling > scalingPrev){
+      scaling = scalingPrev + scalingIncrement * (scaling - scalingPrev);
+    }
+    
     /* compute controler */
     error  = scaling * filterP * (velGoal - vel) + (1 - filterP) * error;                            //[rad/s]
     errorI = scaling * error * dtControl * 0.001 + filterI * errorI;                                //[rad]
     errorD = scaling * filterD * (error - errorPrev)/(dtControl * 0.001) + (1 - filterD) * errorD;  //[rad/s^2]
-    errorTot = kP * error + kI * errorI + kD * errorD;                                    //[-]
+    errorTot = KP * error + KI * errorI + KD * errorD;                                    //[-]
 
     // errorTot = scaling * errorTot;                  // [-] scale total error
     errorPrev = error;
-    
-    /* set error to 0 when outside certain input range
-    if (posGoal > 100 || posGoal < 80){
-      errorTot = 0;
-    } 
-    */
+    scalingPrev = scaling; 
     
     /* determine new setpoint */
     aServo = posGoal + errorTot;
-    if (aServo < steerAngleMin){ // limit minimum angle
-      aServo = steerAngleMin;
+    if (aServo < STEERANGLEMIN){ // limit minimum angle
+      aServo = STEERANGLEMIN;
     }
-    else if (aServo > steerAngleMax){ // limit maximum angle
-      aServo = steerAngleMax;
+    else if (aServo > STEERANGLEMAX){ // limit maximum angle
+      aServo = STEERANGLEMAX;
     }
 
     myservo.write(aServo);
