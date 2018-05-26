@@ -1,13 +1,17 @@
+#include <Servo.h>              // servo
+
 // set pins
-#define RPIN 5
-#define GPIN 6
-#define BPIN 3
+#define RPIN PD5 // 5
+#define GPIN PD6 // 6
+#define BPIN PD3 // 3
 #define ESCPIN A0     // pin from receiver
 #define LFPIN 7 // left forward
 #define RFPIN 8 // right forward
-#define LBPIN 9 // left back
-#define RBPIN 10 // right back
+#define LBPIN PB1//9 // left back
+#define RBPIN PB2 //10 // right back
 #define SERVOPIN 11 // servo pin
+
+Servo myservo;  // create servo object to control a servo
 
 // set prefquencies
 #define DTPRINT 200   // [ms] for printing
@@ -30,6 +34,9 @@
 #define SLOPE 1.0200 //0.2550 //255/500
 #define LEDINT 0.95
 
+#define WEAPONANGLEMIN 20
+#define WEAPONANGLEMAX 180
+
 # define DEBUG true
 
 boolean releaseWeapon = false;
@@ -49,8 +56,8 @@ int throttleThreshold = 3; // threshold
 // init 
 int lf = LOW;
 int rf = LOW;
-uint8_t lb = 0;
-uint8_t rb = 0;
+double lb = 0;
+double rb = 0;
 
 // init RGB
 double r;
@@ -79,6 +86,9 @@ void setup() {
   pinMode(SERVOPIN, OUTPUT);
   
   Serial.println(F("Complete setup!")); Serial.println("");
+  
+  myservo.attach(SERVOPIN);  // attaches the servo on pin 3 to the servo object
+  myservo.write(WEAPONANGLEMIN);
 }
  
  
@@ -151,11 +161,19 @@ void loop() {
     g = min(OUTMAX, max(OUTMIN, g));
     b = min(OUTMAX, max(OUTMIN, b));
 
+    /* LED's */
+    lf = HIGH;
+    rf = HIGH;
+    rb = 254;
+    lb = 254;
+
     /* if braking put LEDs to max */
     if (brakeCount == 1 && velWidth < AVG){
       r = OUTMAX;
       g = OUTMAX;
       b = OUTMAX;
+      rb = 255;
+      lb = 255;
     }
 
     /* Blink when going backwards */
@@ -164,17 +182,17 @@ void loop() {
         r = OUTMIN;
         g = OUTMIN;
         b = OUTMIN;
+
+        /* LED's */
+        lf = LOW;
+        rf = LOW;
+        rb = 0;
+        lb = 0;
       }
       if (t - tBlinkPrev > 2 * DTBLINK){
         tBlinkPrev = t;
       }
     }
-
-    /* LED's */
-    lf = HIGH;
-    rf = HIGH;
-    rb = 255;
-    lb = 255;
 
     /* output new LED values */
     analogWrite(RPIN, r);
@@ -182,7 +200,7 @@ void loop() {
     analogWrite(BPIN, b);
 
     /* update LED's */
-    digitalWrite(LFPIN, rf);
+    digitalWrite(LFPIN, lf);
     digitalWrite(RFPIN, rf);
     analogWrite(LBPIN, lb);
     analogWrite(RBPIN, rb);
@@ -200,6 +218,7 @@ void loop() {
    /* release weapon*/
     if (releaseWeapon) {
       digitalWrite(LED_BUILTIN, releaseWeapon);
+       myservo.write(WEAPONANGLEMAX);
     }
   }
   
