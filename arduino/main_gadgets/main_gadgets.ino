@@ -49,8 +49,8 @@ int throttleThreshold = 3; // threshold
 // init 
 int lf = LOW;
 int rf = LOW;
-uint8_t lb = 0;
-uint8_t rb = 0;
+int lb = 0;
+int rb = 0;
 
 // init RGB
 double r;
