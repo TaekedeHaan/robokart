@@ -1,15 +1,15 @@
 #include <Servo.h>              // servo
 
 // set pins
-#define RPIN PD5 // 5
-#define GPIN PD6 // 6
-#define BPIN PD3 // 3
+#define RPIN PD5      // 5
+#define GPIN PD6      // 6
+#define BPIN PD3      // 3
 #define ESCPIN A0     // pin from receiver
-#define LFPIN 7 // left forward
-#define RFPIN 8 // right forward
-#define LBPIN PB1//9 // left back
-#define RBPIN PB2 //10 // right back
-#define SERVOPIN 11 // servo pin
+#define LFPIN 7       // left forward
+#define RFPIN 8       // right forward
+#define LBPIN 9       // left back
+#define RBPIN 10    ` // right back
+#define SERVOPIN 11   // servo pin
 
 Servo myservo;  // create servo object to control a servo
 
@@ -164,16 +164,19 @@ void loop() {
     /* LED's */
     lf = HIGH;
     rf = HIGH;
-    rb = 254;
-    lb = 254;
+    rb = OUTMIN;
+    lb = OUTMIN;
 
     /* if braking put LEDs to max */
-    if (brakeCount == 1 && velWidth < AVG){
+    if ( (brakeCount == 1 || brakeCount == 2) && velWidth < AVG){
+      // LED strip
       r = OUTMAX;
       g = OUTMAX;
       b = OUTMAX;
-      rb = 255;
-      lb = 255;
+
+      // LED lights
+      rb = OUTMAX;
+      lb = OUTMAX;
     }
 
     /* Blink when going backwards */
@@ -183,12 +186,17 @@ void loop() {
         g = OUTMIN;
         b = OUTMIN;
 
-        /* LED's */
+        // LED lights
         lf = LOW;
         rf = LOW;
-        rb = 0;
-        lb = 0;
+        rb = OUTMIN;
+        lb = OUTMIN;
       }
+      else {
+        rb = OUTMAX;
+        lb = OUTMAX;        
+      }
+      
       if (t - tBlinkPrev > 2 * DTBLINK){
         tBlinkPrev = t;
       }
@@ -218,7 +226,7 @@ void loop() {
    /* release weapon*/
     if (releaseWeapon) {
       digitalWrite(LED_BUILTIN, releaseWeapon);
-       myservo.write(WEAPONANGLEMAX);
+      myservo.write(WEAPONANGLEMAX);
     }
   }
   
