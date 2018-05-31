@@ -1,14 +1,14 @@
 #include <Servo.h>              // servo
 
 // set pins
-#define RPIN PD5      // 5
-#define GPIN PD6      // 6
-#define BPIN PD3      // 3
+#define RPIN 5      // 5
+#define GPIN 6      // 6
+#define BPIN 3      // 3
 #define ESCPIN A0     // pin from receiver
 #define LFPIN 7       // left forward
 #define RFPIN 8       // right forward
 #define LBPIN 9       // left back
-#define RBPIN 10    ` // right back
+#define RBPIN 10      // right back
 #define SERVOPIN 11   // servo pin
 
 Servo myservo;  // create servo object to control a servo
@@ -34,10 +34,11 @@ Servo myservo;  // create servo object to control a servo
 #define SLOPE 1.0200 //0.2550 //255/500
 #define LEDINT 0.95
 
-#define WEAPONANGLEMIN 20
-#define WEAPONANGLEMAX 180
+#define WEAPONANGLEMIN 0
+#define WEAPONANGLEMAX 30
 
 # define DEBUG true
+#define THROTTLETHRESH 2 // threshold
 
 boolean releaseWeapon = false;
 
@@ -51,7 +52,6 @@ unsigned long tThrottlePrev = 0;
 
 int brakeCount = 0; // brake counter
 int throttleCount = 0; // throttle counter
-int throttleThreshold = 3; // threshold
 
 // init 
 int lf = LOW;
@@ -219,7 +219,7 @@ void loop() {
     t = tActionPrev;
     
     /* wehn sufficient amount of trottles set realease weapon flag */
-    if (throttleCount >= throttleThreshold) {
+    if (throttleCount >= THROTTLETHRESH) {
       releaseWeapon = true;
     }
 
