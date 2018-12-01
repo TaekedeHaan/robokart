@@ -1,0 +1,21 @@
+====ARDUINO MISSELANIOUS====
+-wapen: D12
+-koplampen
+	-D10
+	-D9
+	-D8
+	-D7
+-RGB LED Strip
+	- G: 6
+	- R: 5
+	- B: 3
+-Input Throttle: A0
+-Power: 5V 
+
+====ARUINO GYRO====
+-Input steer: A0
+-gyroscoop: 
+	- A4
+	- A5
+-Output steer: D3
+-Power: 5V 
