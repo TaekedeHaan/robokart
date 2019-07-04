@@ -10,4 +10,12 @@ par.m1 = 5;     % not specified
 par.m2 = 0.2;   % [kg]
 par.I1 = 1/12*par.m1*par.L^2;     % [kgm2]
 par.I2 = 1/12*par.m2*0.1^2;
+
+par.torqueMax = 0.8; % [Nm]
+par.torqueMin = -0.8; % [Nm]
+
+r = 0.04; % [m]
+T = 2; % [Nm]
+par.forceMax = T/r; % [N]
+par.forceMin = -T/r; % [N]
 end

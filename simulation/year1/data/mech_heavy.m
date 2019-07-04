@@ -6,7 +6,7 @@ label = 'mech_heavy';
 
 % mechanical
 r = 0.080/2; %[m] wheel redius
-m = 3.0; %[kg]
+m = 5.0; %[kg]
 
 % lijkt ergens tussen de 1:9 en 1:12 te liggen
 n = 50/18 * 2.5/1; % [-] transmission
