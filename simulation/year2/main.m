@@ -8,6 +8,13 @@ clc
 addpath(genpath('lib'))
 addpath('symb')
 
+% TODO: the input force acts on the cart center of mass, not on the cart
+% wheels, this can be fixed by adding an additionall coordinate frame
+% TODO: the fornt wheel of the cart is connected to the rest via a
+% constrained. I think a faster and neater solution is to just use the
+% (simple) kinematics to constrain the wheels
+% TODO: how are we going to model slipping?
+
 %% init
 % simulation
 dt = 0.05;              %[s]
@@ -107,7 +114,7 @@ for i= 1:itterations
     % unpack
     q = y(i,1:4);
     
-    l_current = update_animation(f, l_current, y(i,:));
+    l_current = update_animation(f, l_current, y(i,:), lambda(i,:), force(i));
     
     % fix timing
     if ~(toc < dt) % if this is not true we do not meet required loop time

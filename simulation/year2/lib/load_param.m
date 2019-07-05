@@ -14,8 +14,8 @@ par.I2 = 1/12*par.m2*0.1^2;
 par.torqueMax = 0.8; % [Nm]
 par.torqueMin = -0.8; % [Nm]
 
-r = 0.04; % [m]
+par.r = 0.04; % [m]
 T = 2; % [Nm]
-par.forceMax = T/r; % [N]
-par.forceMin = -T/r; % [N]
+par.forceMax = T/par.r; % [N]
+par.forceMin = -T/par.r; % [N]
 end
