@@ -30,7 +30,7 @@ fline = 20;
 static = false;
 
 par = load_param();
-[La, Lb, L, ma, mb, m, I1, I2, I] = unfold_param(par);
+[La, Lb, L, ma, mb, m, Ia, Ib, I, b] = unfold_param(par);
 
 % torque and force
 force = 10;   % [N]
@@ -38,23 +38,22 @@ torque = 0;
 
 %% init
 
-% location car CoM
-phi1 = 0; %0;
-x1 = -La;%a;% 0;
-y1 = 0; % 0;
+% init
+phi = 0; %
+x = 0;%
+y = 0; % 
+alpha = 0;
 
-% location front wheel
-phia = phi1; % pi;
-xa = x1 + La * cos(phi1); % a + b; %
-ya = y1 + La * sin(phi1); % d; % ;
+q = [x; y; phi; alpha];
+% y = get_y(q);
 
-% location back wheel
-phib = phi1; % pi;
-xb = x1 - Lb * cos(phi1); % a + b; %
-yb = y1 - Lb * sin(phi1); % d; % ;
+xd = 0;
+yd = 0;
+phid = 0;
+alphad = 0;
 
-q = [x1, y1, phi1, xa, ya, phia, xb, yb, phib]';
-qd = zeros(9,1);
+qd = [xd; yd; phid; alphad];
+% yd = get_yd(q, qd);
 
 % pack
 y = [q; qd];
@@ -62,7 +61,7 @@ y = [q; qd];
 % transform to possible space
 % y(1,:) = gauss_newton(y(1,:), par);
 
-lim = [-10, 10];
+lim = [-15, 15];
 f = init_animation([0,0,1000,800], lim);
 set(f,'KeyPressFcn',@key_press);
 l_current = [];
@@ -87,26 +86,26 @@ for i= 1:itterations
     if ~isempty(keyPress)
         switch keyPress
             case 'leftarrow'
-                steerRef = 15/180*pi + y(3,i); % [rad]
+                steerRef = 15/180*pi; % [rad]
             case 'rightarrow'
-                steerRef = -15/180*pi + y(3,i); % [rad]
+                steerRef = -15/180*pi; % [rad]
             case 'uparrow'
-                 velocityRef = 5; % [m/s]
-                 steerRef = y(3,i);
+                 velocityRef = par.vMax; % [m/s]
+                 steerRef = 0;
             case 'downarrow'
                  velocityRef = 0; % [m/s]  
             otherwise
                 velocityRef = 0;
-                steerRef = y(3,i);
+                steerRef = 0;
         end
     else
-         steerRef = y(3,i);
+         steerRef = 0;
         velocityRef = 0;
     end
     
     % compute control action
-    torque(i) = 0.005 * (steerRef  - y(6,i));
-    v = sqrt(y(10,i)^2 + y(11,i)^2); 
+    torque(i) = 0.05 * (steerRef  - y(4,i));
+    v = sqrt(y(5,i)^2 + y(6,i)^2); 
     force(i) = 100 * (velocityRef  - v);    
     
     % saturate if above capabilities

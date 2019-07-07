@@ -24,4 +24,8 @@ par.torqueMin = -0.8; % [Nm]
 T = 2; % [Nm]
 par.forceMax = T/par.r; % [N]
 par.forceMin = -T/par.r; % [N]
+
+
+par.vMax = 40/3.6; % [m/s]
+par.b = par.forceMax/par.vMax;
 end
