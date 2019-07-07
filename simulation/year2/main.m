@@ -30,7 +30,7 @@ fline = 20;
 static = false;
 
 par = load_param();
-[La, Lb, L, m1, m2, I1, I2] = unfold_param(par);
+[La, Lb, L, ma, mb, m, I1, I2, I] = unfold_param(par);
 
 % torque and force
 force = 10;   % [N]
@@ -38,25 +38,29 @@ torque = 0;
 
 %% init
 
-% location backwheel
+% location car CoM
 phi1 = 0; %0;
 x1 = -La;%a;% 0;
 y1 = 0; % 0;
 
-% location front whee;
-phi2 = 0; % pi;
-x2 = x1 + Lb * cos(phi1) + La * cos(phi2); % a + b; %
-y2 = y1 + Lb * sin(phi1) + La * sin(phi2); % d; % ;
+% location front wheel
+phia = phi1; % pi;
+xa = x1 + La * cos(phi1); % a + b; %
+ya = y1 + La * sin(phi1); % d; % ;
 
+% location back wheel
+phib = phi1; % pi;
+xb = x1 - Lb * cos(phi1); % a + b; %
+yb = y1 - Lb * sin(phi1); % d; % ;
 
-q = [x1, y1, phi1, x2, y2, phi2];
-qd = zeros(1, 6);
+q = [x1, y1, phi1, xa, ya, phia, xb, yb, phib]';
+qd = zeros(9,1);
 
 % pack
-y = [q, qd];
+y = [q; qd];
 
 % transform to possible space
-y(1,:) = gauss_newton(y(1,:), par);
+% y(1,:) = gauss_newton(y(1,:), par);
 
 lim = [-10, 10];
 f = init_animation([0,0,1000,800], lim);
@@ -65,9 +69,12 @@ l_current = [];
 
 for i= 1:itterations
     tic
+    if ~ishandle(f)
+        break
+    end
     
     % constrain
-    y(i,:) = gauss_newton(y(i,:), par);
+    % y(i,:) = gauss_newton(y(i,:), par);
     
     % detect input
     keyPress = guidata(f);
@@ -80,41 +87,43 @@ for i= 1:itterations
     if ~isempty(keyPress)
         switch keyPress
             case 'leftarrow'
-                steerRef = 15/180*pi + y(i,3); % [rad]
+                steerRef = 15/180*pi + y(3,i); % [rad]
             case 'rightarrow'
-                steerRef = -15/180*pi + y(i,3); % [rad]
+                steerRef = -15/180*pi + y(3,i); % [rad]
             case 'uparrow'
                  velocityRef = 5; % [m/s]
-                 steerRef = y(i,3);
+                 steerRef = y(3,i);
             case 'downarrow'
                  velocityRef = 0; % [m/s]  
             otherwise
                 velocityRef = 0;
-                steerRef = y(i,3);
+                steerRef = y(3,i);
         end
     else
-         steerRef = y(i,3);
+         steerRef = y(3,i);
         velocityRef = 0;
     end
     
     % compute control action
-    torque(i) = 0.01 * (steerRef  - y(i,6));
-    v = sqrt(y(i,7)^2 + y(i,8)^2); 
+    torque(i) = 0.005 * (steerRef  - y(6,i));
+    v = sqrt(y(10,i)^2 + y(11,i)^2); 
     force(i) = 100 * (velocityRef  - v);    
     
     % saturate if above capabilities
     torque(i) = max(min(torque(i), par.torqueMax), par.torqueMin);
     force(i) = max(min(force(i), par.forceMax), par.forceMin);
     
-    [yd(i,:), lambda(i,:)] = compute_system(y(i,:), par, force(i), torque(i));
+    % [yd(i,:), lambda(i,:)] = compute_system(y(i,:), par, force(i), torque(i));
+    [tTemp, yTemp] = ode45(@(t,y)get_acceleration_system(t, y, force(i), torque(i)),[t(i), t(i+1)],y(:,i));
+    y(:,i + 1) = yTemp(end,:)';
+    
+    lambda(:,i) = get_forces_system(t, y(:,i + 1), force(i), torque(i));
     
     % intergrate numericly
-    y(i + 1,:) = int_rk4(y(i,:), dt, par, force(i), torque(i));
+    % y(i + 1,:) = int_rk4(y(i,:), dt, par, force(i), torque(i));
     
-    % unpack
-    q = y(i,1:4);
-    
-    l_current = update_animation(f, l_current, y(i,:), lambda(i,:), force(i));
+
+    l_current = update_animation(f, l_current, y(:,i), lambda(:,i), force(i));
     
     % fix timing
     if ~(toc < dt) % if this is not true we do not meet required loop time
@@ -129,9 +138,9 @@ for i= 1:itterations
     
 end
 
-i = i + 1;
-y(i,:) = gauss_newton(y(i,:), par);
-[yd(i,:), lambda(i,:)] = compute_system(y(i,:), par, force, torque);
+% i = i + 1;
+% y(i,:) = gauss_newton(y(i,:), par);
+% [yd(i,:), lambda(i,:)] = compute_system(y(i,:), par, force, torque);
 
 
 %% compute enrgy
@@ -170,7 +179,7 @@ y(i,:) = gauss_newton(y(i,:), par);
 
 %% anguylar velocities of body 1 and 2
 figure('Position', dim)
-plot(t, y(:,[9, 12]))
+plot(t, y([9, 12],:))
 legend('\phi_1d', '\phi_2d')
 
 title('Angular velocities')

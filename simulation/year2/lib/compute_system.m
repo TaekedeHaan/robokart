@@ -8,7 +8,7 @@ qd = y(7:end);
 [La, Lb, L, m1, m2, I1, I2] = unfold_param(par);
 
 %unpack y 
-[x1, y1, phi1, x2, y2, phi2, x1d, y1d, phi1d, x2d, y2d phi2d] = unfold(y);
+[x1, y1, phi1, xa, ya, phia, xb, yb, phib, x1d, y1d, phi1d, xad, yad, phiad, xbd, ybd, phibd] = unfold(y)
 
 symb_qdd;
 symb_lambda;
