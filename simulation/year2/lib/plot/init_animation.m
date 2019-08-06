@@ -2,7 +2,7 @@ function f = init_animation(size, lim)
 
 % P = size(A,1);
 
-f = figure('Position', size); %create figure
+f = figure('Units','normalized','OuterPosition', size); %create figure
 grid on
 
 xlabel('x [m]')

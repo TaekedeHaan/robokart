@@ -48,7 +48,7 @@ y = [q; qd];
 
 %% initialize animation
 lim = [-15, 15];
-f = init_animation([0,0,1000,800], lim);
+f = init_animation([0,0.05,0.5,0.95], lim);
 set(f,'KeyPressFcn',@key_press);
 l_current = [];
 

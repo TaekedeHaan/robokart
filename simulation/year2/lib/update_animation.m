@@ -35,7 +35,7 @@ FBThrust = [1/2*force*cos(phib), 1/2*force*sin(phib)]/50;
 
 
 if ishandle(f)
-figure(f)
+% figure(f)
 hold on
 
 % normalized force, for color
