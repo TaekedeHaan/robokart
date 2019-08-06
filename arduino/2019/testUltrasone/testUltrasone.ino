@@ -41,11 +41,6 @@ void setup() {
 }
 
 void loop() {
-  //    Serial.println("LEFT: \n");
-  //    Serial.println(hcsr04left.ToString());
-
-  //    Serial.println("RIGHT: \n");
-  //    Serial.println(hcsr04right.ToString());
 
   // HCSR04 Library
   //      distLeft = hcsr04left.measureDistanceCm();
@@ -56,15 +51,6 @@ void loop() {
     distLeft = (double)hcsr04left.distanceInMillimeters();
     delay(dt);
     distRight = (double)hcsr04right.distanceInMillimeters();
-
-  //  Serial.println("Left:");
-  //  Serial.println(distLeft);
-
-  //  Serial.println("Right:");
-  //  Serial.println(distRight);
-
-  //      servoAngle1 = 0.0;
-  //      servoAngle2 = 0.0;
 
   if (distLeft > 0) {
     servoAngle1 = (1 / (1 + distLeft / 100)) * maxAngle / 2;
@@ -80,26 +66,9 @@ void loop() {
     servoAngle2 = 0.0;
   }
 
-  //  Serial.println("Angle 1:");
-  //  Serial.println(servoAngle1);
-
-  //  Serial.println("Angle 2");
-  //  Serial.println(servoAngle2);
-
-  //      servoAngle = 0;
-
   servoAngleNew = servoAngle1 + servoAngle2;
 
   servoAngle = servoAngleNew;// 0.8 * servoAngle + 0.2 * servoAngleNew;
-
-  //  Serial.println("Angle");
-  //  Serial.println(servoAngle);
-
-  //  Serial.println("\n");
-
-
-  //      Serial.println("Angle: \n");
-  //      Serial.println(servoAngle);
 
   //  myservo.write(servoAngle);
 
@@ -107,5 +76,4 @@ void loop() {
   analogWrite(SERVO_PIN, brightness); // There is an LED on the servo pin.
 
   //  delay(250);
-  //    delay(1000);
 }
