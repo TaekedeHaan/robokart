@@ -133,7 +133,6 @@ if exist('symb\eom.m', 'file')
 end
 diary symb\eom.m
     disp('function qdd = eom(t, y, force, torque)')
-    % disp('qd = y(5:end);')
 
     disp('% get parameters')
     disp('par = load_param();');
@@ -143,7 +142,6 @@ diary symb\eom.m
     disp('[x, y, phi, alpha, xd, yd, phid, alphad] = unfold_y(y);');
 
     disp('qdd = ['), disp(qdd'), disp('];');
-    % disp('yd = [qd; qdd];');
 diary off
 
 % lambda

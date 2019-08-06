@@ -1,5 +1,5 @@
 Sq = [
-[ 0, 0, 0,          0,         0, 0, -sin(phib), cos(phib), 0]
-[ 0, 0, 0, -sin(phia), cos(phia), 0,          0,         0, 0]
+[ -sin(alpha + phi), cos(alpha + phi), La*cos(alpha), 0]
+[         -sin(phi),         cos(phi),           -Lb, 0]
  
 ];

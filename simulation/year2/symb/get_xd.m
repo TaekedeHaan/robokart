@@ -1,7 +1,11 @@
-function xd = get_xd(q)
+function xd = get_xd(q, qd)
 % get parameters
 par = load_param();
 [La, Lb, L, ma, mb, m, Ia, Ib, I, bLin, bRot] = unfold_param(par);
+x = q(1);
+y = q(2);
+phi = q(3);
+alpha = q(4);
 xd = qd(1);
 yd = qd(2);
 phid = qd(3);
