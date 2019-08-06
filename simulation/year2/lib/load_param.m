@@ -33,5 +33,5 @@ par.steerRefMin = -15/180*pi;
 
 %% control
 par.steepKp = 0.05;
-par.steerKd = 1;
+par.steerKd = 0.0002;
 end

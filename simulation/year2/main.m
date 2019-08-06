@@ -8,11 +8,6 @@ clc
 addpath(genpath('lib'))
 addpath('symb')
 
-% TODO: the input force acts on the cart center of mass, not on the cart
-% wheels, this can be fixed by adding an additionall coordinate frame
-% TODO: the fornt wheel of the cart is connected to the rest via a
-% constrained. I think a faster and neater solution is to just use the
-% (simple) kinematics to constrain the wheels
 % TODO: how are we going to model slipping?
 
 %% init
@@ -42,19 +37,13 @@ x = 0;%
 y = 0; % 
 alpha = 0;
 
-q = [x; y; phi; alpha];
-
 xd = 0;
 yd = 0;
 phid = 0;
 alphad = 0;
 
-steerRef = 0;
-velocityRef = 0;
-
+q = [x; y; phi; alpha];
 qd = [xd; yd; phid; alphad];
-
-% pack
 y = [q; qd];
 
 %% initialize animation
@@ -62,6 +51,10 @@ lim = [-15, 15];
 f = init_animation([0,0,1000,800], lim);
 set(f,'KeyPressFcn',@key_press);
 l_current = [];
+
+%% initialize reference
+steerRef = 0;
+velocityRef = 0;
 
 %% main loop
 for i= 1:itterations
@@ -86,7 +79,7 @@ for i= 1:itterations
     % control action
     [force(i), torque(i)] = compute_control_action(steerRef, velocityRef, y(:,i), par);
     
-    [tTemp, yTemp] = ode45(@(t,y)get_acceleration_system(t, y, force(i), torque(i)),[t(i), t(i+1)],y(:,i));
+    [tTemp, yTemp] = ode45(@(t,y)compute_acceleration_system(t, y, force(i), torque(i)),[t(i), t(i+1)],y(:,i));
     y(:,i + 1) = yTemp(end,:)';
     
     lambda(:,i) = get_forces_system(t, y(:,i + 1), force(i), torque(i));

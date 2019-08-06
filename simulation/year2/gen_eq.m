@@ -123,11 +123,11 @@ diary symb\get_x.m
 diary off
 
 % qdd
-if exist('symb\get_acceleration_system.m', 'file')
-    ! del symb\get_acceleration_system.m
+if exist('symb\eom.m', 'file')
+    ! del symb\eom.m
 end
-diary symb\get_acceleration_system.m
-    disp('function yd = get_acceleration_system(t, y, force, torque)')
+diary symb\eom.m
+    disp('function yd = eom(t, y, force, torque)')
     disp('qd = y(5:end);')
 
     disp('% get parameters')
