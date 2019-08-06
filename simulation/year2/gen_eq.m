@@ -5,7 +5,7 @@ clear all
 close all
 clc
 
-%% Pendulum Constants (symbolic definition)
+%% Constants (symbolic definition)
 
 % parametric
 syms L La Lb   real
@@ -68,7 +68,7 @@ S2 = simplify(jacobian(Sd,q) * qd);
 %% EOM in matrix form
 % forces
 Mbar = simplify(Tq' * M * Tq);
-F = [0, 0, 0, 1/2*cos(phi1)*force, 1/2*sin(phi1)*force, torque, 1/2*cos(phi1)*force, 1/2*sin(phi1)*force, 0].';
+F = [0, 0, -torque, 1/2*cos(phi1)*force, 1/2*sin(phi1)*force, torque, 1/2*cos(phi1)*force, 1/2*sin(phi1)*force, 0].';
 Q = [-b*Td(1), -b*Td(2), 0, 0]';
 g = zeros(9,1);
 
