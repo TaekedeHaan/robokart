@@ -9,11 +9,11 @@ clc
 
 % parametric
 syms L La Lb   real
-syms m I ma mb Ia Ib b   real
+syms m I ma mb Ia Ib bLin bRot real
 
 % numeric
 par = load_param();
-% [La, Lb, L, ma, mb, m, Ia, Ib, I, b] = unfold_param(par);
+% [La, Lb, L, ma, mb, m, Ia, Ib, I, bLin bRot] = unfold_param(par);
 
 % other
 syms g torque force           real
@@ -69,7 +69,7 @@ S2 = simplify(jacobian(Sd,q) * qd);
 % forces
 Mbar = simplify(Tq' * M * Tq);
 F = [0, 0, -torque, 1/2*cos(phi1)*force, 1/2*sin(phi1)*force, torque, 1/2*cos(phi1)*force, 1/2*sin(phi1)*force, 0].';
-Q = [-b*Td(1), -b*Td(2), 0, 0]';
+Q = [-bLin*Td(1), -bLin*Td(2), 0, -bRot*Td(6)]';
 g = zeros(9,1);
 
 % zero matrix
@@ -93,7 +93,7 @@ diary symb\get_xd.m
     disp('function xd = get_xd(q)')
     disp('% get parameters')
     disp('par = load_param();');
-    disp('[La, Lb, L, ma, mb, m, Ia, Ib, I, b] = unfold_param(par);');
+    disp('[La, Lb, L, ma, mb, m, Ia, Ib, I, bLin, bRot] = unfold_param(par);');
     
     disp('xd = qd(1);')
     disp('yd = qd(2);')
@@ -112,7 +112,7 @@ diary symb\get_x.m
     
     disp('% get parameters')
     disp('par = load_param();');
-    disp('[La, Lb, L, ma, mb, m, Ia, Ib, I, b] = unfold_param(par);');
+    disp('[La, Lb, L, ma, mb, m, Ia, Ib, I, bLin, bRot] = unfold_param(par);');
     
     disp('x = q(1);')
     disp('y = q(2);')
@@ -132,7 +132,7 @@ diary symb\eom.m
 
     disp('% get parameters')
     disp('par = load_param();');
-    disp('[La, Lb, L, ma, mb, m, Ia, Ib, I, b] = unfold_param(par);');
+    disp('[La, Lb, L, ma, mb, m, Ia, Ib, I, bLin, bRot] = unfold_param(par);');
 
     disp('%unpack')
     disp('[x, y, phi, alpha, xd, yd, phid, alphad] = unfold_y(y);');
@@ -146,10 +146,10 @@ if exist('symb\get_forces_system.m', 'file')
     ! del symb\get_forces_system.m
 end
 diary symb\get_forces_system.m
-    disp('function lambda = get_forces_system(t, y, force, torque)')
+    disp('function lambda = get_forces_system(t, y, force, torque);')
     
     disp('par = load_param();');
-    disp('[La, Lb, L, ma, mb, m, Ia, Ib, I, b] = unfold_param(par);');
+    disp('[La, Lb, L, ma, mb, m, Ia, Ib, I, bLin, bRot] = unfold_param(par);');
     
     
     disp('%unpack y')

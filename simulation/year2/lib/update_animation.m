@@ -3,7 +3,7 @@ function l_current = update_animation(f, l_previous, y, lamba, force)
 scale = 5;
 
 par = load_param();
-[La, Lb, L, ma, mb, m, Ia, Ib, I, b] = unfold_param(par)
+[La, Lb, L, ma, mb, m, Ia, Ib, I, b] = unfold_param(par);
 
 q = y(1:4);
 qd = y(5:8);
