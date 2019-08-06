@@ -1,6 +1,6 @@
 function [par] = load_param()
 
-%
+par.g = 9.81;
 par.r = 0.04; % [m]
 
 % dim
@@ -36,4 +36,9 @@ par.steerRefMin = -25/180*pi;
 %% control
 par.steerKp = 0.5;
 par.steerKd = 0.0002;
+
+%% Wheels
+% friction coeficient
+mu = 1;
+par.fFricMax = mu*par.m*par.g;
 end

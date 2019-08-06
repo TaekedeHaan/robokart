@@ -90,10 +90,15 @@ if exist('symb\get_xd.m', 'file')
     ! del symb\get_xd.m
 end
 diary symb\get_xd.m
-    disp('function xd = get_xd(q)')
+    disp('function xd = get_xd(q, qd)')
     disp('% get parameters')
     disp('par = load_param();');
     disp('[La, Lb, L, ma, mb, m, Ia, Ib, I, bLin, bRot] = unfold_param(par);');
+    
+    disp('x = q(1);')
+    disp('y = q(2);')
+    disp('phi = q(3);')
+    disp('alpha = q(4);')
     
     disp('xd = qd(1);')
     disp('yd = qd(2);')
@@ -127,8 +132,8 @@ if exist('symb\eom.m', 'file')
     ! del symb\eom.m
 end
 diary symb\eom.m
-    disp('function yd = eom(t, y, force, torque)')
-    disp('qd = y(5:end);')
+    disp('function qdd = eom(t, y, force, torque)')
+    % disp('qd = y(5:end);')
 
     disp('% get parameters')
     disp('par = load_param();');
@@ -138,7 +143,7 @@ diary symb\eom.m
     disp('[x, y, phi, alpha, xd, yd, phid, alphad] = unfold_y(y);');
 
     disp('qdd = ['), disp(qdd'), disp('];');
-    disp('yd = [qd; qdd];');
+    % disp('yd = [qd; qdd];');
 diary off
 
 % lambda

@@ -13,7 +13,7 @@ addpath('symb')
 %% init
 % simulation
 dt = 0.05;              %[s]
-t_end = 1000;             %[s]
+t_end = 1000;           %[s]
 t = 0:dt:t_end;         %[s]
 itterations = t_end/dt; %[-]
 
@@ -72,14 +72,13 @@ for i= 1:itterations
         disp(keyPress);
     end
     
-    
     % compute reference
     [steerRef, velocityRef] = compute_reference(keyPress, steerRef, velocityRef, par);
     
     % control action
     [force(i), torque(i)] = compute_control_action(steerRef, velocityRef, y(:,i), par);
     
-    [tTemp, yTemp] = ode45(@(t,y)compute_acceleration_system(t, y, force(i), torque(i)),[t(i), t(i+1)],y(:,i));
+    [tTemp, yTemp] = ode45(@(t,y)compute_acceleration_system(t, y, force(i), torque(i), par),[t(i), t(i+1)],y(:,i));
     y(:,i + 1) = yTemp(end,:)';
     
     lambda(:,i) = get_forces_system(t, y(:,i + 1), force(i), torque(i));
