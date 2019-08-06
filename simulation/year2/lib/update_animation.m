@@ -3,7 +3,7 @@ function l_current = update_animation(f, l_previous, y, lamba, force)
 scale = 5;
 
 par = load_param();
-[La, Lb, L, ma, mb, m, Ia, Ib, I, b] = unfold_param(par)
+[La, Lb, L, ma, mb, m, Ia, Ib, I, b] = unfold_param(par);
 
 q = y(1:4);
 qd = y(5:8);
@@ -25,12 +25,12 @@ B2 = [xb + La*cos(phib), yb + La*sin(phib)];
 
 % forces front tire
 A = [xa, ya];
-FAfric = -[-lamba(end-1)*sin(phia), lamba(end-1)*cos(phia)]/50;
+FAfric = [lamba(end-1)*sin(phia), -lamba(end-1)*cos(phia)]/50;
 FAThrust = [1/2*force*cos(phia), 1/2*force*sin(phia)]/50;
 
 % forces back tire
 B = [xb, yb];
-FBFric = -[-lamba(end)*sin(phib), lamba(end)*cos(phib)]/50;
+FBFric = [lamba(end)*sin(phib), -lamba(end)*cos(phib)]/50;
 FBThrust = [1/2*force*cos(phib), 1/2*force*sin(phib)]/50;
 
 

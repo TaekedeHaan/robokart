@@ -1,12 +1,16 @@
-function xd = get_xd(q)
+function xd = get_xd(q, qd)
 % get parameters
 par = load_param();
-[La, Lb, L, ma, mb, m, Ia, Ib, I, b] = unfold_param(par);
-xd = qd(1);
-yd = qd(2);
+[La, Lb, L, ma, mb, m, Ia, Ib, I, bLin, bRot, fFricMax] = unfold_param(par);
+xCoM = q(1);
+yCoM = q(2);
+phi = q(3);
+alpha = q(4);
+xCoMd = qd(1);
+yCoMd = qd(2);
 phid = qd(3);
 alphad = qd(4);
 xd = [
-[ xd, yd, phid, xd - La*phid*sin(phi), yd + La*phid*cos(phi), alphad + phid, xd + Lb*phid*sin(phi), yd - Lb*phid*cos(phi), phid]
+[ xCoMd, yCoMd, phid, xCoMd - (3*phid*sin(phi))/20, yCoMd + (3*phid*cos(phi))/20, alphad + phid, xCoMd + (3*phid*sin(phi))/20, yCoMd - (3*phid*cos(phi))/20, phid]
  
 ];

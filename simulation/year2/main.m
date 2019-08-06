@@ -8,26 +8,18 @@ clc
 addpath(genpath('lib'))
 addpath('symb')
 
-% TODO: the input force acts on the cart center of mass, not on the cart
-% wheels, this can be fixed by adding an additionall coordinate frame
-% TODO: the fornt wheel of the cart is connected to the rest via a
-% constrained. I think a faster and neater solution is to just use the
-% (simple) kinematics to constrain the wheels
-% TODO: how are we going to model slipping?
-
 %% init
 % simulation
 dt = 0.05;              %[s]
-t_end = 1000;             %[s]
+t_end = 1000;           %[s]
 t = 0:dt:t_end;         %[s]
 itterations = t_end/dt; %[-]
 
 % plot
 dim = [200, 200, 1000, 350];
 
-% animation
+% refresh rate animation
 fline = 20;
-static = false;
 
 par = load_param();
 [La, Lb, L, ma, mb, m, Ia, Ib, I, b] = unfold_param(par);
@@ -36,36 +28,38 @@ par = load_param();
 force = 10;   % [N]
 torque = 0;
 
-%% init
+%% initialize coordinates
+phi = 0;    % [rad]
+x = 0;      % [m]
+y = 0;      % [m]
+alpha = 0;  % [rad]
 
-% init
-phi = 0; %
-x = 0;%
-y = 0; % 
-alpha = 0;
+xd = 0;     % [m/s]
+yd = 0;     % [m/s]
+phid = 0;   % [rad/s]
+alphad = 0; % [rad/s]
 
-q = [x; y; phi; alpha];
-% y = get_y(q);
-
-xd = 0;
-yd = 0;
-phid = 0;
-alphad = 0;
-
+q = [x; y; phi; alpha]; 
 qd = [xd; yd; phid; alphad];
-% yd = get_yd(q, qd);
 
 % pack
 y = [q; qd];
 
-% transform to possible space
-% y(1,:) = gauss_newton(y(1,:), par);
-
-lim = [-15, 15];
+%% initialize animation
+lim = [-15, 15]; % [m] position limits used
 f = init_animation([0,0,1000,800], lim);
+
+% call back function for control
 set(f,'KeyPressFcn',@key_press);
+
+% line to be plotted
 l_current = [];
 
+%% init user input
+steerRef = 0;
+forceRef = 0;
+
+%% main loop
 for i= 1:itterations
     tic
     if ~ishandle(f)
@@ -81,47 +75,17 @@ for i= 1:itterations
         disp(keyPress);
     end
     
+    % get reference
+    [steerRef, forceRef] = get_reference(keyPress, steerRef,  forceRef,  par);
     
-    % compute reference
-    if ~isempty(keyPress)
-        switch keyPress
-            case 'leftarrow'
-                steerRef = 15/180*pi; % [rad]
-            case 'rightarrow'
-                steerRef = -15/180*pi; % [rad]
-            case 'uparrow'
-                 velocityRef = par.vMax; % [m/s]
-                 steerRef = 0;
-            case 'downarrow'
-                 velocityRef = 0; % [m/s]  
-            otherwise
-                velocityRef = 0;
-                steerRef = 0;
-        end
-    else
-         steerRef = 0;
-        velocityRef = 0;
-    end
+    % get control action
+    [torque(i), force(i)] = get_control_action(steerRef, forceRef, y(:, i), par);
     
-    % compute control action
-    torque(i) = 0.05 * (steerRef  - y(4,i));
-    v = sqrt(y(5,i)^2 + y(6,i)^2); 
-    force(i) = 100 * (velocityRef  - v);    
-    
-    % saturate if above capabilities
-    torque(i) = max(min(torque(i), par.torqueMax), par.torqueMin);
-    force(i) = max(min(force(i), par.forceMax), par.forceMin);
-    
-    % [yd(i,:), lambda(i,:)] = compute_system(y(i,:), par, force(i), torque(i));
-    [tTemp, yTemp] = ode45(@(t,y)get_acceleration_system(t, y, force(i), torque(i)),[t(i), t(i+1)],y(:,i));
+    [tTemp, yTemp] = ode45(@(t,y)get_acceleration_system(t, y, force(i), torque(i), par),[t(i), t(i+1)],y(:,i));
     y(:,i + 1) = yTemp(end,:)';
     
     lambda(:,i) = get_forces_system(t, y(:,i + 1), force(i), torque(i));
     
-    % intergrate numericly
-    % y(i + 1,:) = int_rk4(y(i,:), dt, par, force(i), torque(i));
-    
-
     l_current = update_animation(f, l_current, y(:,i), lambda(:,i), force(i));
     
     % fix timing
@@ -176,28 +140,27 @@ end
 % saveas(gca, 'fig/path', 'jpg')
 % saveas(gca, 'fig/path', 'epsc')
 
-%% anguylar velocities of body 1 and 2
-figure('Position', dim)
-plot(t, y([9, 12],:))
-legend('\phi_1d', '\phi_2d')
-
-title('Angular velocities')
-xlabel('time [s]')
-ylabel('Angular velocity [rad/s]')
-
-saveas(gca, 'fig/ang_vel', 'jpg')
-saveas(gca, 'fig/ang_vel', 'epsc')
-
-
-%% Linear velocities of body 1 and 2
-figure('Position', dim)
-plot(t, y(:,[7, 8, 10, 11]))
-legend('x_1d', 'y_1d', 'x_2d', 'y_2d')
-
-title('Linear velocities')
-xlabel('time [s]')
-ylabel('Linear velocity [n/s]')
-
-saveas(gca, 'fig/lin_vel', 'jpg')
-saveas(gca, 'fig/lin_vel', 'epsc')
-
+% %% anguylar velocities of body 1 and 2
+% figure('Position', dim)
+% plot(t, y([9, 12],:))
+% legend('\phi_1d', '\phi_2d')
+% 
+% title('Angular velocities')
+% xlabel('time [s]')
+% ylabel('Angular velocity [rad/s]')
+% 
+% saveas(gca, 'fig/ang_vel', 'jpg')
+% saveas(gca, 'fig/ang_vel', 'epsc')
+% 
+% %% Linear velocities of body 1 and 2
+% figure('Position', dim)
+% plot(t, y(:,[7, 8, 10, 11]))
+% legend('x_1d', 'y_1d', 'x_2d', 'y_2d')
+% 
+% title('Linear velocities')
+% xlabel('time [s]')
+% ylabel('Linear velocity [n/s]')
+% 
+% saveas(gca, 'fig/lin_vel', 'jpg')
+% saveas(gca, 'fig/lin_vel', 'epsc')
+% 
