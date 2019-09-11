@@ -19,6 +19,11 @@ Adafruit_L3GD20_Unified       gyro  = Adafruit_L3GD20_Unified(20);
 - RECEIVER: Analog 0
 */
 
+/* Controller setting
+st trim 0
+st dr 6  
+ */
+
 Servo myservo;  // create servo object to control a servo
 
 /* init pins*/
@@ -46,13 +51,20 @@ double scaleIntenstity = 1;
 double velTreshold = 0.02; // below treshold vel is set to 0
 
 /* steering */
-const double RECEIVEWIDTHMIN = 972;   // [us] minimum width receiving steering signal amplitude = 465
-const double RECEIVEWIDTHAVG = 1437;  // [us] default width receiving steering signal
-const double RECEIVEWIDTHMAX = 1970;  // [us] maximum width receiving steering signal amplitude = 533
+const double RECEIVEWIDTHMID = 1437;  // [us] default width receiving steering signal
+const double RECEIVEWIDTHAMPLITUDE = 500; // [us] default width receiving steering signal
 
-const double STEERANGLEMIN = 45; //[deg] minimum steering angle default = 45, steers to the left
-const double STEERANGLEAVG = 90; //[deg] default steering angle
-const double STEERANGLEMAX = 135;//[deg] maximum steering angle default = 135, steers to the right
+/* these consts are unnesesary and should be removed*/
+const double RECEIVEWIDTHMIN = RECEIVEWIDTHMID - RECEIVEWIDTHAMPLITUDE;   // [us] minimum width receiving steering signal amplitude = 465
+const double RECEIVEWIDTHMAX = RECEIVEWIDTHMID + RECEIVEWIDTHAMPLITUDE;  // [us] maximum width receiving steering signal amplitude = 533
+
+const double STEERANGLEMID = 107; //[deg] default steering angle
+const double STEERANGLEWIDTH = 40; // [deg]
+
+/* these consts are unnesesary and should be removed*/
+const double STEERANGLEMIN = STEERANGLEMID - STEERANGLEWIDTH; //[deg] minimum steering angle default = 45, steers to the left
+const double STEERANGLEMAX = STEERANGLEWIDTH + STEERANGLEMID;//[deg] maximum steering angle default = 135, steers to the right
+
 
 /* CONTROLLER CONSTANTS*/
 const double filterP = 1;     // importantance curerent value
@@ -62,7 +74,7 @@ const double KP = 5; // 7.5; //5.00;
 const double KI = 100; //50;
 const double KD = 0.5; //0.5;
 
-double posGoal = STEERANGLEAVG;   // variable to store the servo position. initialize in middle
+double posGoal = STEERANGLEMID;   // variable to store the servo position. initialize in middle
 double posGoalPrev = posGoal;     // variable to store previous pos goal
 
 /* Timer variables */
@@ -187,12 +199,12 @@ void loop(void)
     receiverValue = pulseIn(sensorPin, HIGH); //[us] read pwm pin
 
     /* filter noise */
-    if (abs(receiverValue - RECEIVEWIDTHAVG) < 50){
-      receiverValue = RECEIVEWIDTHAVG;
+    if (abs(receiverValue - RECEIVEWIDTHMID) < 50){
+      receiverValue = RECEIVEWIDTHMID;
     }
 
     /* convert reveiver value to desired steering angle with simple interpolation */
-    posGoal = (receiverValue - RECEIVEWIDTHAVG) * (STEERANGLEMAX - STEERANGLEMIN)/(RECEIVEWIDTHMAX - RECEIVEWIDTHMIN) + STEERANGLEAVG;
+    posGoal = (receiverValue - RECEIVEWIDTHMID) * (STEERANGLEMAX - STEERANGLEMIN)/(RECEIVEWIDTHMAX - RECEIVEWIDTHMIN) + STEERANGLEMID;
 
     /* fitler desired steering angle */
     posGoal = filterPosGoal * posGoal + (1 - filterPosGoal) * posGoalPrev;
@@ -239,7 +251,7 @@ void loop(void)
       aServo = STEERANGLEMAX;
     }
 
-    myservo.write(STEERANGLEAVG); // aServo
+    myservo.write(aServo); // aServo
   }
 
   /* prints for debugging */
