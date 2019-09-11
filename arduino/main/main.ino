@@ -12,6 +12,13 @@ Adafruit_LSM303_Accel_Unified accel = Adafruit_LSM303_Accel_Unified(30301);
 Adafruit_LSM303_Mag_Unified   mag   = Adafruit_LSM303_Mag_Unified(30302);
 Adafruit_L3GD20_Unified       gyro  = Adafruit_L3GD20_Unified(20);
 
+/* PINOUT:
+- GYRO SDA = Analog 4
+- GYRO SCL = Analog 5
+- SERVO: Digital 3
+- RECEIVER: Analog 0
+*/
+
 Servo myservo;  // create servo object to control a servo
 
 /* init pins*/
@@ -39,13 +46,13 @@ double scaleIntenstity = 1;
 double velTreshold = 0.02; // below treshold vel is set to 0
 
 /* steering */
-const double RECEIVEWIDTHMIN = 972;   // [us] minimum width receiving steering signal
+const double RECEIVEWIDTHMIN = 972;   // [us] minimum width receiving steering signal amplitude = 465
 const double RECEIVEWIDTHAVG = 1437;  // [us] default width receiving steering signal
-const double RECEIVEWIDTHMAX = 1970;  // [us] maximum width receiving steering signal
+const double RECEIVEWIDTHMAX = 1970;  // [us] maximum width receiving steering signal amplitude = 533
 
-const double STEERANGLEMIN = 45; //[deg] minimum steering angle
+const double STEERANGLEMIN = 45; //[deg] minimum steering angle default = 45, steers to the left
 const double STEERANGLEAVG = 90; //[deg] default steering angle
-const double STEERANGLEMAX = 135;//[deg] maximum steering angle
+const double STEERANGLEMAX = 135;//[deg] maximum steering angle default = 135, steers to the right
 
 /* CONTROLLER CONSTANTS*/
 const double filterP = 1;     // importantance curerent value
@@ -67,7 +74,7 @@ unsigned long jitter;
 // unsigned long tReadPrev;
 
 /* init frequencies */
-const long dtControl = 20;
+const long dtControl = 20; //[ms]
 const long dtPrint = 500;
 const long dtBlink = 100;
 //const long dtRead = 10;
@@ -232,7 +239,7 @@ void loop(void)
       aServo = STEERANGLEMAX;
     }
 
-    myservo.write(aServo);
+    myservo.write(STEERANGLEAVG); // aServo
   }
 
   /* prints for debugging */
@@ -244,7 +251,7 @@ void loop(void)
         Serial.print(errorI);
         Serial.print("\t");              // prints a tab
         
-        if (false){  
+        if (true){  
           Serial.print(F("vel goal: "));
           Serial.print(velGoal);
           Serial.print("\t");              // prints a tab
