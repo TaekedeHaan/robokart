@@ -204,7 +204,7 @@ void loop(void)
     }
 
     /* convert reveiver value to desired steering angle with simple interpolation */
-    posGoal = (receiverValue - RECEIVEWIDTHMID) * (STEERANGLEMAX - STEERANGLEMIN)/(RECEIVEWIDTHMAX - RECEIVEWIDTHMIN) + STEERANGLEMID;
+    posGoal = (receiverValue - RECEIVEWIDTHMID) * (STEERANGLEWIDTH)/(RECEIVEWIDTHAMPLITUDE) + STEERANGLEMID;
 
     /* fitler desired steering angle */
     posGoal = filterPosGoal * posGoal + (1 - filterPosGoal) * posGoalPrev;
@@ -259,28 +259,28 @@ void loop(void)
       if ((t - tPrintPrev) > dtPrint){
         tPrintPrev = t;
 
-        Serial.print(F("I error: "));
-        Serial.print(errorI);
-        Serial.print("\t");              // prints a tab
+        // Serial.print(F("I error: "));
+        // Serial.print(errorI);
+        // Serial.print("\t");              // prints a tab
         
         if (true){  
-          Serial.print(F("vel goal: "));
-          Serial.print(velGoal);
-          Serial.print("\t");              // prints a tab
+          // Serial.print(F("angular velocity goal: "));
+          // Serial.print(velGoal);
+          // Serial.print("\t");              // prints a tab
   
-          Serial.print(F("vel error: "));
-          Serial.print(velGoal);
-          Serial.print("\t");              // prints a tab
+          // Serial.print(F("angular velovity error: "));
+          // Serial.print(velGoal);
+          // Serial.print("\t");              // prints a tab
           
-          Serial.print(F("D error: "));
-          Serial.print(errorD);
-          Serial.print("\t");              // prints a tab
+          // Serial.print(F("D error: "));
+          // Serial.print(errorD);
+          // Serial.print("\t");              // prints a tab
           
-          Serial.print(F("tot error: "));
-          Serial.print(errorTot);
-          Serial.print("\t");              // prints a tab
+          // Serial.print(F("tot error: "));
+          // Serial.print(errorTot);
+          // Serial.print("\t");              // prints a tab
 
-          Serial.print(F("vel: "));
+          Serial.print(F("angular velocity: "));
           Serial.print(vel);
           Serial.print("\t");              // prints a tab
           
