@@ -65,7 +65,6 @@ const double STEERANGLEWIDTH = 40; // [deg]
 const double STEERANGLEMIN = STEERANGLEMID - STEERANGLEWIDTH; //[deg] minimum steering angle default = 45, steers to the left
 const double STEERANGLEMAX = STEERANGLEWIDTH + STEERANGLEMID;//[deg] maximum steering angle default = 135, steers to the right
 
-
 /* CONTROLLER CONSTANTS*/
 const double filterP = 1;     // importantance curerent value
 const double filterI = 0.95;   // 0.75  // importantance curerent value
@@ -181,8 +180,7 @@ void loop(void)
 {
 
   t = millis(); // [ms]
-
-
+  
   /* Control loop */
   if ((t - tControlPrev) >= dtControl){
     
@@ -204,7 +202,7 @@ void loop(void)
     }
 
     /* convert reveiver value to desired steering angle with simple interpolation */
-    posGoal = (receiverValue - RECEIVEWIDTHMID) * (STEERANGLEWIDTH)/(RECEIVEWIDTHAMPLITUDE) + STEERANGLEMID;
+    posGoal = (receiverValue - RECEIVEWIDTHMID) * STEERANGLEWIDTH/RECEIVEWIDTHAMPLITUDE + STEERANGLEMID;
 
     /* fitler desired steering angle */
     posGoal = filterPosGoal * posGoal + (1 - filterPosGoal) * posGoalPrev;
@@ -225,7 +223,8 @@ void loop(void)
     }
 
     /* compute scaling */
-    scaling = -pow(abs(posGoal/90 - 1), scaleIntenstity) + 1;   // [-] get scaling factor for error value
+    scaling = -pow(abs( (posGoal - STEERANGLEMID)/STEERANGLEWIDTH), scaleIntenstity) + 1;   // [-] get scaling factor for error value
+    // scaling = -pow(abs(posGoal/90 - 1), scaleIntenstity) + 1;   // [-] get scaling factor for error value
 
     /* when we exit a corner we dont want the PID to directly kick in */
     if (scaling > scalingPrev){
@@ -259,10 +258,10 @@ void loop(void)
       if ((t - tPrintPrev) > dtPrint){
         tPrintPrev = t;
 
-        // Serial.print(F("I error: "));
-        // Serial.print(errorI);
-        // Serial.print("\t");              // prints a tab
-        
+        /* Serial.print(F("I error: "));
+           Serial.print(errorI);
+           Serial.print("\t");              // prints a tab
+        */
         if (true){  
           // Serial.print(F("angular velocity goal: "));
           // Serial.print(velGoal);
@@ -279,6 +278,10 @@ void loop(void)
           // Serial.print(F("tot error: "));
           // Serial.print(errorTot);
           // Serial.print("\t");              // prints a tab
+          
+          Serial.print(F("scaling: "));
+          Serial.print(scaling);
+          Serial.print("\t");              // prints a tab
 
           Serial.print(F("angular velocity: "));
           Serial.print(vel);
@@ -287,6 +290,11 @@ void loop(void)
           Serial.print(F("receiver: "));
           Serial.print(receiverValue);
           Serial.print("\t");              // prints a tab
+
+          Serial.print(F("receiver angle: "));
+          Serial.print(posGoal);
+          Serial.print("\t");              // prints a tab
+
           
           Serial.print(F("angle servo: "));
           Serial.print(aServo);
