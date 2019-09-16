@@ -2,34 +2,30 @@
 //#include <HCSR04.h>
 #include <Servo.h>              // servo
 
-#define TRIG_PIN 8
-#define ECHO_PIN_X_POS 9
 
-//#define TRIG_PIN_Y_POS 8
-#define ECHO_PIN_Y_POS 10
 
-//#define TRIG_PIN_X_NEG 8
-#define ECHO_PIN_X_NEG 11
+#define Nsensors 3
 
-//#define SERVO_PIN 3
+// Use this to nuber and label your sensors
+#define TRIG_PIN 8 // One trigger pin for all sensors
+const int ECHO_PINS[Nsensors] = {9, 10, 11};
+String SensorNames[Nsensors] = {"X+", "Y+", "X-"};
 
-// Bifrost library
-int Nsensors = 3;
+// Initialize counters etc.
 int count = 0;
 int idx = 0;
 unsigned long t = 0;
 unsigned long t_old = 0;
 
+// Sensor range in mm
 int minRange = 5;
 int maxRange = 4000;
 
-HCSR04 Sensor_X_POS(TRIG_PIN, ECHO_PIN_X_POS, minRange, maxRange);
-HCSR04 Sensor_Y_POS(TRIG_PIN, ECHO_PIN_Y_POS, minRange, maxRange);
-HCSR04 Sensor_X_NEG(TRIG_PIN, ECHO_PIN_X_NEG, minRange, maxRange);
+// Array of pointers to sensor objects. (Not exactly sure how it works but it works.)
+HCSR04 *sensorArray[Nsensors];
 
-HCSR04 sensorArray[3] = {Sensor_X_POS, Sensor_Y_POS, Sensor_X_NEG};
-
-double distances[3] = {0, 0, 0};
+double distances[Nsensors];
+double dist_filt[Nsensors];
 
 //unsigned long dt = 20;
 
@@ -38,46 +34,46 @@ unsigned long dt = 160 / Nsensors;
 
 void setup() {
   Serial.begin(9600);
+
+  // Initialize sensors
+  for (int i = 0; i < Nsensors; i++) {
+    sensorArray[i] = new HCSR04(TRIG_PIN, ECHO_PINS[i], minRange, maxRange);
+  }
 }
 
 double readSensor(int sensorNumber) {
+  // Declarevariables
   double dist;
-  HCSR04 sensor = sensorArray[sensorNumber];
+  HCSR04* sensor = sensorArray[sensorNumber];
 
-  dist = sensor.distanceInMillimeters();
-
+  // Use pointer to sensor object to call distance function
+  dist = sensor->distanceInMillimeters();
   return dist;
 }
 
-void loop() {
-  //  for (int i = 0; i <= Nsensors - 1; i++) {
 
+void loop() {
+
+  // Timing
   t = millis();
   if (t - t_old > dt) {
 
+    // Save current time
     t_old = t;
 
+    // Index of current sensor, every loop pick a different one.
     idx = count % Nsensors;
 
+    // Update distance array.
     distances[idx] = readSensor(idx);
 
-    switch (idx) {
-      case 0:
-        Serial.print("X+");
-        Serial.print(distances[0]);
-        Serial.print("\n");
-        break;
-      case 1:
-        Serial.print("Y+");
-        Serial.print(distances[1]);
-        Serial.print("\n");
-        break;
-      case 2:
-        Serial.print("X-");
-        Serial.print(distances[2]);
-        Serial.print("\n");
-        break;
-    }
+    // Apply filter
+    dist_filt[idx] = 0.4 * dist_filt[idx] + 0.6 * distances[idx];
+
+    // Print everything
+    Serial.print(SensorNames[idx]);
+    Serial.print(distances[idx]);
+    Serial.print("\n");
 
     Serial.print("t:");
     Serial.print(t);
@@ -85,6 +81,5 @@ void loop() {
 
     digitalWrite(TRIG_PIN, LOW);
     count++;
-    //    t_old = millis();
   }
 }
