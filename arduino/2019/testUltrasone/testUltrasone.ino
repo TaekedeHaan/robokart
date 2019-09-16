@@ -6,6 +6,8 @@
 
 #define Nsensors 3
 
+bool debug = false;
+
 // Use this to nuber and label your sensors
 #define TRIG_PIN 8 // One trigger pin for all sensors
 const int ECHO_PINS[Nsensors] = {9, 10, 11};
@@ -15,7 +17,9 @@ String SensorNames[Nsensors] = {"X+", "Y+", "X-"};
 int count = 0;
 int idx = 0;
 unsigned long t = 0;
-unsigned long t_old = 0;
+unsigned long t_sensor = 0;
+unsigned long t_main_loop = 0;
+unsigned long dt = 0;
 
 // Sensor range in mm
 int minRange = 5;
@@ -24,13 +28,23 @@ int maxRange = 4000;
 // Array of pointers to sensor objects. (Not exactly sure how it works but it works.)
 HCSR04 *sensorArray[Nsensors];
 
-double distances[Nsensors];
-double dist_filt[Nsensors];
+// A few variables for distances
+int distances[Nsensors];
+int dist_cur;
+int dist_filt[Nsensors];
+int dist_xp;
+int dist_max = 200; // Safe distance from wall
+
+// Velocity variables
+double v_x_des;
+double v_x_cur = 0;
+double v_max = 1;
+double acc_max = 1;
 
 //unsigned long dt = 20;
 
 // Sync sample time with filter_design M-file.
-unsigned long dt = 160 / Nsensors;
+unsigned long dt_sensor = 160 / Nsensors;
 
 void setup() {
   Serial.begin(9600);
@@ -41,6 +55,7 @@ void setup() {
   }
 }
 
+// Helper functions
 double readSensor(int sensorNumber) {
   // Declarevariables
   double dist;
@@ -51,35 +66,73 @@ double readSensor(int sensorNumber) {
   return dist;
 }
 
+double sign(double val) {
+  double sgn = 1;
+  if (val < 0) {
+    sgn = -1;
+  }
+  if (val == 0) {
+    sgn = 0;
+  }
+  return sgn;
+}
 
 void loop() {
 
   // Timing
   t = millis();
-  if (t - t_old > dt) {
+  if (t - t_sensor > dt_sensor) {
 
     // Save current time
-    t_old = t;
+    t_sensor = t;
 
     // Index of current sensor, every loop pick a different one.
     idx = count % Nsensors;
 
-    // Update distance array.
-    distances[idx] = readSensor(idx);
+    // Make measurement
+    dist_cur = readSensor(idx);
+
+    if (dist_cur > 0) {
+      // Only update distance if a measurement was made succesfully.
+      distances[idx] = dist_cur;
+    }
 
     // Apply filter
     dist_filt[idx] = 0.4 * dist_filt[idx] + 0.6 * distances[idx];
 
-    // Print everything
-    Serial.print(SensorNames[idx]);
-    Serial.print(distances[idx]);
-    Serial.print("\n");
+    if (debug) {
+      // Print everything
+      Serial.print(SensorNames[idx]);
+      Serial.print(distances[idx]);
+      Serial.print("\n");
 
-    Serial.print("t:");
-    Serial.print(t);
-    Serial.print("\n");
+      Serial.print("t:");
+      Serial.print(t);
+      Serial.print("\n");
+    }
 
     digitalWrite(TRIG_PIN, LOW);
     count++;
   }
+
+  // Time since last loop
+  dt = t - t_main_loop;
+  t_main_loop = t;
+
+  // Straight ahead should be the first sensor.
+  dist_xp = dist_filt[0];
+
+  // Forward velocity depends only on distance to wall.
+  v_x_des = min(v_max, v_max * ((double) dist_xp - (double) dist_max) / (double) dist_max);
+
+  // Update actual velocity according to acceleration
+  v_x_cur = v_x_cur + acc_max * (double) dt/1000 * sign(v_x_des - v_x_cur);
+
+  Serial.print("v_x_des:  ");
+  Serial.print(v_x_des);
+  Serial.print("   v_x_cur:  ");
+  Serial.print(v_x_cur);
+  Serial.print("\n");
+
+
 }
