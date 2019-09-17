@@ -12,18 +12,6 @@ Adafruit_LSM303_Accel_Unified accel = Adafruit_LSM303_Accel_Unified(30301);
 Adafruit_LSM303_Mag_Unified   mag   = Adafruit_LSM303_Mag_Unified(30302);
 Adafruit_L3GD20_Unified       gyro  = Adafruit_L3GD20_Unified(20);
 
-/* PINOUT:
-- GYRO SDA = Analog 4
-- GYRO SCL = Analog 5
-- SERVO: Digital 3
-- RECEIVER: Analog 0
-*/
-
-/* Controller setting
-st trim 0
-st dr 6  
- */
-
 Servo myservo;  // create servo object to control a servo
 
 /* init pins*/
@@ -51,19 +39,13 @@ double scaleIntenstity = 1;
 double velTreshold = 0.02; // below treshold vel is set to 0
 
 /* steering */
-const double RECEIVEWIDTHMID = 1437;  // [us] default width receiving steering signal
-const double RECEIVEWIDTHAMPLITUDE = 500; // [us] default width receiving steering signal
+const double RECEIVEWIDTHMIN = 972;   // [us] minimum width receiving steering signal
+const double RECEIVEWIDTHAVG = 1437;  // [us] default width receiving steering signal
+const double RECEIVEWIDTHMAX = 1970;  // [us] maximum width receiving steering signal
 
-/* these consts are unnesesary and should be removed*/
-const double RECEIVEWIDTHMIN = RECEIVEWIDTHMID - RECEIVEWIDTHAMPLITUDE;   // [us] minimum width receiving steering signal amplitude = 465
-const double RECEIVEWIDTHMAX = RECEIVEWIDTHMID + RECEIVEWIDTHAMPLITUDE;  // [us] maximum width receiving steering signal amplitude = 533
-
-const double STEERANGLEMID = 107; //[deg] default steering angle
-const double STEERANGLEWIDTH = 40; // [deg]
-
-/* these consts are unnesesary and should be removed*/
-const double STEERANGLEMIN = STEERANGLEMID - STEERANGLEWIDTH; //[deg] minimum steering angle default = 45, steers to the left
-const double STEERANGLEMAX = STEERANGLEWIDTH + STEERANGLEMID;//[deg] maximum steering angle default = 135, steers to the right
+const double STEERANGLEMIN = 45; //[deg] minimum steering angle
+const double STEERANGLEAVG = 90; //[deg] default steering angle
+const double STEERANGLEMAX = 135;//[deg] maximum steering angle
 
 /* CONTROLLER CONSTANTS*/
 const double filterP = 1;     // importantance curerent value
@@ -73,7 +55,7 @@ const double KP = 5; // 7.5; //5.00;
 const double KI = 100; //50;
 const double KD = 0.5; //0.5;
 
-double posGoal = STEERANGLEMID;   // variable to store the servo position. initialize in middle
+double posGoal = STEERANGLEAVG;   // variable to store the servo position. initialize in middle
 double posGoalPrev = posGoal;     // variable to store previous pos goal
 
 /* Timer variables */
@@ -85,7 +67,7 @@ unsigned long jitter;
 // unsigned long tReadPrev;
 
 /* init frequencies */
-const long dtControl = 20; //[ms]
+const long dtControl = 20;
 const long dtPrint = 500;
 const long dtBlink = 100;
 //const long dtRead = 10;
@@ -180,7 +162,8 @@ void loop(void)
 {
 
   t = millis(); // [ms]
-  
+
+
   /* Control loop */
   if ((t - tControlPrev) >= dtControl){
     
@@ -197,12 +180,12 @@ void loop(void)
     receiverValue = pulseIn(sensorPin, HIGH); //[us] read pwm pin
 
     /* filter noise */
-    if (abs(receiverValue - RECEIVEWIDTHMID) < 50){
-      receiverValue = RECEIVEWIDTHMID;
+    if (abs(receiverValue - RECEIVEWIDTHAVG) < 50){
+      receiverValue = RECEIVEWIDTHAVG;
     }
 
     /* convert reveiver value to desired steering angle with simple interpolation */
-    posGoal = (receiverValue - RECEIVEWIDTHMID) * STEERANGLEWIDTH/RECEIVEWIDTHAMPLITUDE + STEERANGLEMID;
+    posGoal = (receiverValue - RECEIVEWIDTHAVG) * (STEERANGLEMAX - STEERANGLEMIN)/(RECEIVEWIDTHMAX - RECEIVEWIDTHMIN) + STEERANGLEAVG;
 
     /* fitler desired steering angle */
     posGoal = filterPosGoal * posGoal + (1 - filterPosGoal) * posGoalPrev;
@@ -223,8 +206,7 @@ void loop(void)
     }
 
     /* compute scaling */
-    scaling = -pow(abs( (posGoal - STEERANGLEMID)/STEERANGLEWIDTH), scaleIntenstity) + 1;   // [-] get scaling factor for error value
-    // scaling = -pow(abs(posGoal/90 - 1), scaleIntenstity) + 1;   // [-] get scaling factor for error value
+    scaling = -pow(abs(posGoal/90 - 1), scaleIntenstity) + 1;   // [-] get scaling factor for error value
 
     /* when we exit a corner we dont want the PID to directly kick in */
     if (scaling > scalingPrev){
@@ -250,7 +232,7 @@ void loop(void)
       aServo = STEERANGLEMAX;
     }
 
-    myservo.write(aServo); // aServo
+    myservo.write(aServo);
   }
 
   /* prints for debugging */
@@ -258,43 +240,34 @@ void loop(void)
       if ((t - tPrintPrev) > dtPrint){
         tPrintPrev = t;
 
-        /* Serial.print(F("I error: "));
-           Serial.print(errorI);
-           Serial.print("\t");              // prints a tab
-        */
-        if (true){  
-          // Serial.print(F("angular velocity goal: "));
-          // Serial.print(velGoal);
-          // Serial.print("\t");              // prints a tab
+        Serial.print(F("I error: "));
+        Serial.print(errorI);
+        Serial.print("\t");              // prints a tab
+        
+        if (false){  
+          Serial.print(F("vel goal: "));
+          Serial.print(velGoal);
+          Serial.print("\t");              // prints a tab
   
-          // Serial.print(F("angular velovity error: "));
-          // Serial.print(velGoal);
-          // Serial.print("\t");              // prints a tab
+          Serial.print(F("vel error: "));
+          Serial.print(velGoal);
+          Serial.print("\t");              // prints a tab
           
-          // Serial.print(F("D error: "));
-          // Serial.print(errorD);
-          // Serial.print("\t");              // prints a tab
+          Serial.print(F("D error: "));
+          Serial.print(errorD);
+          Serial.print("\t");              // prints a tab
           
-          // Serial.print(F("tot error: "));
-          // Serial.print(errorTot);
-          // Serial.print("\t");              // prints a tab
-          
-          Serial.print(F("scaling: "));
-          Serial.print(scaling);
+          Serial.print(F("tot error: "));
+          Serial.print(errorTot);
           Serial.print("\t");              // prints a tab
 
-          Serial.print(F("angular velocity: "));
+          Serial.print(F("vel: "));
           Serial.print(vel);
           Serial.print("\t");              // prints a tab
           
           Serial.print(F("receiver: "));
           Serial.print(receiverValue);
           Serial.print("\t");              // prints a tab
-
-          Serial.print(F("receiver angle: "));
-          Serial.print(posGoal);
-          Serial.print("\t");              // prints a tab
-
           
           Serial.print(F("angle servo: "));
           Serial.print(aServo);
