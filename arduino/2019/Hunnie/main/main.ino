@@ -15,7 +15,8 @@ Adafruit_L3GD20_Unified       gyro  = Adafruit_L3GD20_Unified(20);
 Servo myservo;  // create servo object to control a servo
 
 /* init pins*/
-byte velocityReadPin = A2;
+// byte velocityReadPin = A2;
+// int releasePin = 6;
 byte sensorPin = A1;      //
 int servoPin = 3;         // servo pin
 

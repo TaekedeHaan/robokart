@@ -2,24 +2,51 @@
 //#include <HCSR04.h>
 #include <Servo.h>              // servo
 
-
-
 #define Nsensors 8
 
-bool debug = true;
+bool debug = false;
 
-// Use this to nuber and label your sensors
+// Pin definitions
+#define DIR_LEFT 3 // A-IB
+#define VEL_LEFT 5 // A-IA
+
+#define DIR_RIGHT 6 // B-IB
+#define VEL_RIGHT 9 // B-IA
+
 #define TRIG_PIN 2 // One trigger pin for all sensors
-const int ECHO_PINS[Nsensors] = {4, 7, 8, 12, A4, A5, A6, A7};
-String SensorNames[Nsensors] = {"X+", "X+Y+", "Y+", "X-Y+", "X-", "X-Y-", "Y-", "X+Y-"};
+
+// A0 A1 receiver
+const int ECHO_PINS[Nsensors] = {4,   7,    8,    12,   A2,   A3,   A4,   A5};
+String SensorNames[Nsensors] = {"F_", "FR", "_R", "BR", "B_", "BL", "_L", "FL"};
+
+// HD params
+double radius = 1;
+
+// Driving valriables/constants
+double w_des = 0;
+double v_des = 0;
+
+double v_max = 1;
+double w_max = 1;
+
+int wheelSpeeds[2] = {0, 0};
 
 // Initialize counters etc.
 int count = 0;
 int idx = 0;
+
+// Timers
 unsigned long t = 0;
 unsigned long t_sensor = 0;
 unsigned long t_main_loop = 0;
-unsigned long dt = 0;
+unsigned long t_print = 0;
+unsigned long t_drive = 0;
+
+unsigned long dt = 0; // ??
+//unsigned long dt = 20;
+unsigned int dt_print = 1000;
+unsigned int dt_drive = 100;
+unsigned long dt_sensor = 160 / Nsensors;
 
 // Sensor range in mm
 int minRange = 5;
@@ -43,13 +70,13 @@ double v_x_des;
 double v_xp_des;
 double v_xm_des;
 double v_x_cur = 0;
-double v_max = 1;
+// double v_max = 1;
 
 double wp_des;
 double wm_des;
-double w_des;
+// double w_des;
 double w_cur = 0;
-double w_max = 1;
+// double w_max = 1;
 
 // Accelerations
 double acc_max = 1;
@@ -59,18 +86,12 @@ double w_dot_max = 1;
 double diag_sens_factor = 0.125;
 double orth_sens_factor = 1 - 2 * diag_sens_factor;
 
-//unsigned long dt = 20;
-
-// Sync sample time with filter_design M-file.
-unsigned long dt_sensor = 160 / Nsensors;
-//unsigned long dt_sensor = 1000 / Nsensors;
-
 void setup() {
   Serial.begin(9600);
 
   // Initialize sensors
   for (int i = 0; i < Nsensors; i++) {
-    pinMode(ECHO_PINS[i],INPUT);
+    pinMode(ECHO_PINS[i], INPUT);
     sensorArray[i] = new HCSR04(TRIG_PIN, ECHO_PINS[i], minRange, maxRange);
   }
 }
@@ -97,12 +118,85 @@ double sign(double val) {
   return sgn;
 }
 
+void VW2wheelSpeeds(double v, double w, int wheelSpeeds[2]) {
+  int diff;
+  double vL;
+  double vR;
+
+
+  w = min(abs(w) * radius, v_max) / radius * sign(w);
+  
+  // Left
+  vL = v - w * radius;
+
+  // Right
+  vR = v + w * radius;
+  
+  // In case of actuator windup
+  diff = (max(abs(vL), v_max) - v_max) * sign(vL);
+  vL = vL - diff;
+  vR = vR - diff;
+
+  diff = (max(abs(vR), v_max) - v_max) * sign(vR);
+  vL = vL - diff;
+  vR = vR - diff;
+
+  wheelSpeeds[0] = (int) (vL/ v_max * 255);
+  wheelSpeeds[1] = (int) (vR/ v_max * 255);
+
+
+}
+
+void writeWheelSpeeds(int wheelSpeeds[2]) {
+
+
+  // Serial.println(wheelSpeeds[0]);
+  // Serial.println(wheelSpeeds[1]);
+
+  int LW = 0; // wheelSpeeds[0];
+  int RW = 0; //-wheelSpeeds[1];
+
+  Serial.print("LW: "); Serial.println(LW);
+  Serial.print("RW: "); Serial.println(RW);
+
+  if (LW > 0) {
+    digitalWrite(DIR_LEFT, LOW);
+    // analogWrite(VEL_LEFT, LW);
+    digitalWrite(VEL_LEFT, HIGH);
+  }
+  else if (LW < 0) {
+    digitalWrite(DIR_LEFT, HIGH);
+    analogWrite(VEL_LEFT, 255 + LW);
+    //    digitalWrite(VEL_LEFT, LOW);
+  }
+  else {
+    digitalWrite(DIR_LEFT, LOW);
+    analogWrite(VEL_LEFT, 0);
+    //    digitalWrite(VEL_LEFT, LOW);
+  }
+
+  if (RW > 0) {
+    digitalWrite(DIR_RIGHT, LOW);
+    analogWrite(VEL_RIGHT, RW);
+    //    digitalWrite(VEL_RIGHT, HIGH);
+  }
+  else if (RW < 0) {
+    digitalWrite(DIR_RIGHT, HIGH);
+    analogWrite(VEL_RIGHT, 255 + RW);
+    //    digitalWrite(VEL_RIGHT, LOW);
+  }
+  else {
+    digitalWrite(DIR_RIGHT, LOW);
+    analogWrite(VEL_RIGHT, 0);
+    //    digitalWrite(VEL_RIGHT,LOW);
+
+  }
+}
+
 void loop() {
-
-  // Timing
-//  delay(50);
-
   t = millis();
+
+  // read sensor
   if (t - t_sensor > dt_sensor) {
 
     // Save current time
@@ -122,17 +216,6 @@ void loop() {
     // Apply filter
     dist_filt[idx] = 0.4 * dist_filt[idx] + 0.6 * distances[idx];
 
-    if (debug) {
-      // Print everything
-      Serial.print(SensorNames[idx]);
-      Serial.print(distances[idx]);
-      Serial.print("\n");
-
-      Serial.print("t:");
-      Serial.print(t);
-      Serial.print("\n");
-    }
-
     digitalWrite(TRIG_PIN, LOW);
     count++;
   }
@@ -141,48 +224,84 @@ void loop() {
   dt = t - t_main_loop;
   t_main_loop = t;
 
-  // Straight ahead should be the first sensor.
-  // Take some linear combination of the 3 forward facing sensors.
-  dist_xp = orth_sens_factor * dist_filt[0] + diag_sens_factor * dist_filt[7] + diag_sens_factor * dist_filt[1];
+  if (false) {
+    // Straight ahead should be the first sensor.
+    // Take some linear combination of the 3 forward facing sensors.
+    dist_xp = orth_sens_factor * dist_filt[0] + diag_sens_factor * dist_filt[7] + diag_sens_factor * dist_filt[1];
 
-  // Distance behind the car
-  // Take the same linear combination of the 3 backward facing sensors.
-  dist_xm = orth_sens_factor * dist_filt[4] + diag_sens_factor * dist_filt[3] + diag_sens_factor * dist_filt[5];
+    // Distance behind the car
+    // Take the same linear combination of the 3 backward facing sensors.
+    dist_xm = orth_sens_factor * dist_filt[4] + diag_sens_factor * dist_filt[3] + diag_sens_factor * dist_filt[5];
 
-  // Distances left and right
-  dist_yp = orth_sens_factor * dist_filt[2] + diag_sens_factor * dist_filt[1] + diag_sens_factor * dist_filt[3];
-  dist_ym = orth_sens_factor * dist_filt[6] + diag_sens_factor * dist_filt[5] + diag_sens_factor * dist_filt[7];
+    // Distances left and right
+    dist_yp = orth_sens_factor * dist_filt[2] + diag_sens_factor * dist_filt[1] + diag_sens_factor * dist_filt[3];
+    dist_ym = orth_sens_factor * dist_filt[6] + diag_sens_factor * dist_filt[5] + diag_sens_factor * dist_filt[7];
 
-  // Forward velocity depends on distance to wall (front and back).
-  v_xp_des = min(v_max, v_max * ((double) dist_xp - (double) dist_max) / (double) dist_max);
-  v_xm_des = max(0, -v_max * ((double) dist_xm - (double) dist_max) / (double) dist_max); // This has a zero minimum, otherwise the car would be attracted to walls behind it.
-  v_x_des  = min(v_max, v_xp_des + v_xm_des);
+    // Forward velocity depends on distance to wall (front and back).
+    v_xp_des = min(v_max, v_max * ((double) dist_xp - (double) dist_max) / (double) dist_max);
+    v_xm_des = max(0, -v_max * ((double) dist_xm - (double) dist_max) / (double) dist_max); // This has a zero minimum, otherwise the car would be attracted to walls behind it.
+    v_x_des  = min(v_max, v_xp_des + v_xm_des);
 
-  // Angular velocity depends on distance to left and right walls.
-  wp_des = max(0, -w_max * ((double) dist_yp - (double) dist_max) / (double) dist_max); // This has a zero minimum, otherwise the car would be attracted to walls to its right.
-  wm_des = min(0, w_max * ((double) dist_ym - (double) dist_max) / (double) dist_max);  // This has a zero maximum, otherwise the car would be attracted to walls to its left.
-  w_des  = min(v_max, v_xp_des + v_xm_des);
+    // Angular velocity depends on distance to left and right walls.
+    wp_des = max(0, -w_max * ((double) dist_yp - (double) dist_max) / (double) dist_max); // This has a zero minimum, otherwise the car would be attracted to walls to its right.
+    wm_des = min(0, w_max * ((double) dist_ym - (double) dist_max) / (double) dist_max);  // This has a zero maximum, otherwise the car would be attracted to walls to its left.
+    w_des  = min(v_max, v_xp_des + v_xm_des);
 
-  // Update actual velocity according to acceleration
-  v_x_cur = v_x_cur + acc_max * (double) dt / 1000 * sign(v_x_des - v_x_cur);
-  w_cur = w_cur + w_dot_max * (double) dt / 1000 * sign(w_des - w_cur);
+    // Update actual velocity according to acceleration
+    v_x_cur = v_x_cur + acc_max * (double) dt / 1000 * sign(v_x_des - v_x_cur);
+    w_cur = w_cur + w_dot_max * (double) dt / 1000 * sign(w_des - w_cur);
+  }
 
-  Serial.print("distances:  ");
-  Serial.print(dist_filt[0]); Serial.print("  ");
-  Serial.print(dist_filt[1]); Serial.print("  ");
-  Serial.print(dist_filt[2]); Serial.print("  ");
-  Serial.print(dist_filt[3]); Serial.print("  ");
-  Serial.print(dist_filt[4]); Serial.print("  ");
-  Serial.print(dist_filt[5]); Serial.print("  ");
-  Serial.print(dist_filt[6]); Serial.print("  ");
-  Serial.print(dist_filt[7]); Serial.print("  ");
-  Serial.print("\n");
-  Serial.print("dt: ");
-  Serial.print(dt);
-  Serial.print("\n");
-  //  Serial.print("   v_x_cur:  ");
-  //  Serial.print(v_x_cur);
-  //  Serial.print("\n");
+  if (t - t_drive > dt_drive) {
+    if (dist_filt[0] > dist_max) {
+      v_des = v_max;
+      w_des = 0;
+    }
+    else {
+      v_des = 0;
+      w_des = w_max;
+    }
 
+    VW2wheelSpeeds(v_des, w_des, wheelSpeeds);
+    writeWheelSpeeds(wheelSpeeds);
+  }
+
+
+  if (debug) {
+    if (t - t_print > dt_print) {
+      t_print = t;
+
+      for (int i = 0; i < Nsensors; i++) {
+        Serial.print(SensorNames[i]); Serial.print("\t");
+      }
+      Serial.print("\n");
+
+      for (int i = 0; i < Nsensors; i++) {
+        Serial.print(dist_filt[i]); Serial.print("\t");
+      }
+      Serial.print("\n");
+      Serial.print("Desired v: "); Serial.print(v_des); Serial.print("\t"); Serial.print("Desired w: "); Serial.print(w_des);
+      Serial.print("\n");
+      Serial.print("\n");
+    }
+    //    Serial.print("dt: ");
+    //    Serial.print(dt);
+    //    Serial.print("\n");
+
+
+    //  Print everything
+    //  Serial.print(SensorNames[idx]);
+    //  Serial.print(distances[idx]);
+    //  Serial.print("\n");
+    //
+    //  Serial.print("t:");
+    //  Serial.print(t);
+    //  Serial.print("\n");
+
+    //  Serial.print("   v_x_cur:  ");
+    //  Serial.print(v_x_cur);
+    //  Serial.print("\n");
+
+  }
 
 }
