@@ -3,7 +3,8 @@
 
 #define Nsensors 8
 
-bool debug = true;
+bool debug = false;
+bool visualize = true;
 
 // Pin definitions
 #define DIR_LEFT 3 // A-IB
@@ -156,8 +157,8 @@ void VW2wheelSpeeds(double v, double w, int wheelSpeeds[2]) {
 
 void writeWheelSpeeds(int wheelSpeeds[2]) {
 
-  int LW = wheelSpeeds[0];
-  int RW = -wheelSpeeds[1];
+  int LW = 0; //wheelSpeeds[0];
+  int RW = 0;// -wheelSpeeds[1];
 
   if (LW > 0) {
     digitalWrite(DIR_LEFT, LOW);
@@ -212,6 +213,12 @@ void loop() {
 
     digitalWrite(TRIG_PIN, LOW);
     count++;
+
+    if (visualize) {
+      Serial.print(SensorNames[idx]);
+      Serial.print(dist_filt[idx]);
+      Serial.print("\n");
+    }
   }
 
   // Time since last loop
