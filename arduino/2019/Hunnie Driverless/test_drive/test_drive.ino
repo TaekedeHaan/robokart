@@ -86,8 +86,8 @@ void VW2wheelSpeeds(int v, int w, int wheelSpeeds[2]) {
 }
 
 void writeWheelSpeeds(int wheelSpeeds[2]) {
-  int LW = 0; // wheelSpeeds[0];
-  int RW = 0; //-wheelSpeeds[1];
+  int LW = wheelSpeeds[0];
+  int RW = -wheelSpeeds[1];
 
   if (LW > 0) {
     digitalWrite(DIR_LEFT, LOW);

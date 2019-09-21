@@ -1,10 +1,9 @@
 #include <hcsr04.h>
-//#include <HCSR04.h>
 #include <Servo.h>              // servo
 
 #define Nsensors 8
 
-bool debug = false;
+bool debug = true;
 
 // Pin definitions
 #define DIR_LEFT 3 // A-IB
@@ -29,6 +28,9 @@ double v_des = 0;
 double v_max = 1;
 double w_max = 1;
 
+double v_nominal = 0.8;
+double w_nominal = 0.8;
+
 int wheelSpeeds[2] = {0, 0};
 
 // Initialize counters etc.
@@ -37,6 +39,7 @@ int idx = 0;
 
 // Timers
 unsigned long t = 0;
+
 unsigned long t_sensor = 0;
 unsigned long t_main_loop = 0;
 unsigned long t_print = 0;
@@ -89,6 +92,11 @@ double orth_sens_factor = 1 - 2 * diag_sens_factor;
 void setup() {
   Serial.begin(9600);
 
+  pinMode(DIR_LEFT, OUTPUT);
+  pinMode(VEL_LEFT, OUTPUT);
+  pinMode(DIR_RIGHT, OUTPUT);
+  pinMode(VEL_RIGHT, OUTPUT);
+
   // Initialize sensors
   for (int i = 0; i < Nsensors; i++) {
     pinMode(ECHO_PINS[i], INPUT);
@@ -125,13 +133,13 @@ void VW2wheelSpeeds(double v, double w, int wheelSpeeds[2]) {
 
 
   w = min(abs(w) * radius, v_max) / radius * sign(w);
-  
+
   // Left
   vL = v - w * radius;
 
   // Right
   vR = v + w * radius;
-  
+
   // In case of actuator windup
   diff = (max(abs(vL), v_max) - v_max) * sign(vL);
   vL = vL - diff;
@@ -141,54 +149,40 @@ void VW2wheelSpeeds(double v, double w, int wheelSpeeds[2]) {
   vL = vL - diff;
   vR = vR - diff;
 
-  wheelSpeeds[0] = (int) (vL/ v_max * 255);
-  wheelSpeeds[1] = (int) (vR/ v_max * 255);
-
-
+  // store results in vector
+  wheelSpeeds[0] = (int) (vL / v_max * 255);
+  wheelSpeeds[1] = (int) (vR / v_max * 255);
 }
 
 void writeWheelSpeeds(int wheelSpeeds[2]) {
 
-
-  // Serial.println(wheelSpeeds[0]);
-  // Serial.println(wheelSpeeds[1]);
-
-  int LW = 0; // wheelSpeeds[0];
-  int RW = 0; //-wheelSpeeds[1];
-
-  Serial.print("LW: "); Serial.println(LW);
-  Serial.print("RW: "); Serial.println(RW);
+  int LW = wheelSpeeds[0];
+  int RW = -wheelSpeeds[1];
 
   if (LW > 0) {
     digitalWrite(DIR_LEFT, LOW);
-    // analogWrite(VEL_LEFT, LW);
-    digitalWrite(VEL_LEFT, HIGH);
+    analogWrite(VEL_LEFT, LW);
   }
   else if (LW < 0) {
     digitalWrite(DIR_LEFT, HIGH);
     analogWrite(VEL_LEFT, 255 + LW);
-    //    digitalWrite(VEL_LEFT, LOW);
   }
   else {
     digitalWrite(DIR_LEFT, LOW);
     analogWrite(VEL_LEFT, 0);
-    //    digitalWrite(VEL_LEFT, LOW);
   }
 
   if (RW > 0) {
     digitalWrite(DIR_RIGHT, LOW);
     analogWrite(VEL_RIGHT, RW);
-    //    digitalWrite(VEL_RIGHT, HIGH);
   }
   else if (RW < 0) {
     digitalWrite(DIR_RIGHT, HIGH);
     analogWrite(VEL_RIGHT, 255 + RW);
-    //    digitalWrite(VEL_RIGHT, LOW);
   }
   else {
     digitalWrite(DIR_RIGHT, LOW);
     analogWrite(VEL_RIGHT, 0);
-    //    digitalWrite(VEL_RIGHT,LOW);
 
   }
 }
@@ -224,48 +218,19 @@ void loop() {
   dt = t - t_main_loop;
   t_main_loop = t;
 
-  if (false) {
-    // Straight ahead should be the first sensor.
-    // Take some linear combination of the 3 forward facing sensors.
-    dist_xp = orth_sens_factor * dist_filt[0] + diag_sens_factor * dist_filt[7] + diag_sens_factor * dist_filt[1];
-
-    // Distance behind the car
-    // Take the same linear combination of the 3 backward facing sensors.
-    dist_xm = orth_sens_factor * dist_filt[4] + diag_sens_factor * dist_filt[3] + diag_sens_factor * dist_filt[5];
-
-    // Distances left and right
-    dist_yp = orth_sens_factor * dist_filt[2] + diag_sens_factor * dist_filt[1] + diag_sens_factor * dist_filt[3];
-    dist_ym = orth_sens_factor * dist_filt[6] + diag_sens_factor * dist_filt[5] + diag_sens_factor * dist_filt[7];
-
-    // Forward velocity depends on distance to wall (front and back).
-    v_xp_des = min(v_max, v_max * ((double) dist_xp - (double) dist_max) / (double) dist_max);
-    v_xm_des = max(0, -v_max * ((double) dist_xm - (double) dist_max) / (double) dist_max); // This has a zero minimum, otherwise the car would be attracted to walls behind it.
-    v_x_des  = min(v_max, v_xp_des + v_xm_des);
-
-    // Angular velocity depends on distance to left and right walls.
-    wp_des = max(0, -w_max * ((double) dist_yp - (double) dist_max) / (double) dist_max); // This has a zero minimum, otherwise the car would be attracted to walls to its right.
-    wm_des = min(0, w_max * ((double) dist_ym - (double) dist_max) / (double) dist_max);  // This has a zero maximum, otherwise the car would be attracted to walls to its left.
-    w_des  = min(v_max, v_xp_des + v_xm_des);
-
-    // Update actual velocity according to acceleration
-    v_x_cur = v_x_cur + acc_max * (double) dt / 1000 * sign(v_x_des - v_x_cur);
-    w_cur = w_cur + w_dot_max * (double) dt / 1000 * sign(w_des - w_cur);
-  }
-
   if (t - t_drive > dt_drive) {
     if (dist_filt[0] > dist_max) {
-      v_des = v_max;
+      v_des = v_nominal;
       w_des = 0;
     }
     else {
       v_des = 0;
-      w_des = w_max;
+      w_des = w_nominal;
     }
 
     VW2wheelSpeeds(v_des, w_des, wheelSpeeds);
     writeWheelSpeeds(wheelSpeeds);
   }
-
 
   if (debug) {
     if (t - t_print > dt_print) {
@@ -284,24 +249,6 @@ void loop() {
       Serial.print("\n");
       Serial.print("\n");
     }
-    //    Serial.print("dt: ");
-    //    Serial.print(dt);
-    //    Serial.print("\n");
-
-
-    //  Print everything
-    //  Serial.print(SensorNames[idx]);
-    //  Serial.print(distances[idx]);
-    //  Serial.print("\n");
-    //
-    //  Serial.print("t:");
-    //  Serial.print(t);
-    //  Serial.print("\n");
-
-    //  Serial.print("   v_x_cur:  ");
-    //  Serial.print(v_x_cur);
-    //  Serial.print("\n");
-
   }
 
 }
