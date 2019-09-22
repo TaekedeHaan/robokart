@@ -41,7 +41,7 @@ Servo releaseServo;  // create servo object to control the release servo
 #define STEER_OUT_MAX STEER_OUT_MID + STEER_OUT_AMPLITUDE
 // #define STEERIN2ANGLE STEERANGLEWIDTH/RECEIVEWIDTHAMPLITUDE
 
-#define RELEASE_NEUTRAL_ANGLE 155
+#define RELEASE_NEUTRAL_ANGLE 105 // 155
 #define RELEASE_ACTIVATE_ANGLE 80
 
 double filterPosGoal = 1.0; // importantance curerent value
@@ -285,6 +285,10 @@ void loop(void)
 
     /* compute scaling */
     scaling = -pow(abs( (posGoal - STEER_OUT_MID)/STEER_OUT_AMPLITUDE), scaleIntenstity) + 1; // [-] get scaling factor for error value
+
+    if (brakeCount >= 2){
+      scaling = 0;
+    }
 
     /* when we exit a corner we dont want the PID to directly kick in */
     if (scaling > scalingPrev) {
