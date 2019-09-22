@@ -22,22 +22,24 @@ Servo releaseServo;  // create servo object to control the release servo
 #define VELOCITYIN A3  // pin which reads velocity
 
 /* receiver velocity PWM width */
-#define VELOCITY_IN_MEAN 1470
+#define VELOCITY_IN_MID 1470
 #define VELOCITYINMAX 2000
 #define VELOCITYINMIN 1000
 #define VELOCITY_IN_MARGIN 50
 #define DTTHROTTLE 2000 // [ms]
 
 /* receiver steering PWM width */
-#define STEER_IN_MIN 972   // [us] minimum width receiving steering signal
-#define STEER_IN_MEAN 1437  // [us] default width receiving steering signal
-#define STEER_IN_MAX 1970  // [us] maximum width receiving steering signal
+#define STEER_IN_MID 1437  // [us] default width receiving steering signal
+#define STEER_IN_AMPLITUDE 500  // [us] maximum width receiving steering signal
 #define STEER_IN_MARGIN 60
 
 /* Steering servo angles */
-#define STEERANGLEMIN 45 //[deg] minimum steering angle
-#define STEERANGLEAVG 90 //[deg] default steering angle
-#define STEERANGLEMAX 135//[deg] maximum steering angle
+// #define STEERANGLEMIN 45 //[deg] minimum steering angle
+#define STEER_OUT_MID 107 //[deg] default steering angle
+#define STEER_OUT_AMPLITUDE 40//[deg] maximum steering angle
+#define STEER_OUT_MIN STEER_OUT_MID - STEER_OUT_AMPLITUDE
+#define STEER_OUT_MAX STEER_OUT_MID + STEER_OUT_AMPLITUDE
+// #define STEERIN2ANGLE STEERANGLEWIDTH/RECEIVEWIDTHAMPLITUDE
 
 #define RELEASE_NEUTRAL_ANGLE 180
 #define RELEASE_ACTIVATE_ANGLE 80
@@ -74,7 +76,7 @@ const double KP = 5; // 7.5; //5.00;
 const double KI = 100; //50;
 const double KD = 0.5; //0.5;
 
-double posGoal = STEERANGLEAVG;   // variable to store the servo position. initialize in middle
+double posGoal = STEER_OUT_MID;   // variable to store the servo position. initialize in middle
 double posGoalPrev = posGoal;     // variable to store previous pos goal
 
 /* */
@@ -220,34 +222,34 @@ void loop(void)
     velocityIn = pulseIn(VELOCITYIN, HIGH); //[us] read pwm pin
 
     /* filter noise on steer */
-    if (abs(steerIn - STEER_IN_MEAN) < STEER_IN_MARGIN) {
-      steerIn = STEER_IN_MEAN;
+    if (abs(steerIn - STEER_IN_MID) < STEER_IN_MARGIN) {
+      steerIn = STEER_IN_MID;
     }
 
     /* filter noise on velocity */
-    if (abs(velocityIn - VELOCITY_IN_MEAN) < VELOCITY_IN_MARGIN) {
-      velocityIn = VELOCITY_IN_MEAN;
+    if (abs(velocityIn - VELOCITY_IN_MID) < VELOCITY_IN_MARGIN) {
+      velocityIn = VELOCITY_IN_MID;
     }
 
     /* count braking */
-    if (velocityInPrev >= VELOCITY_IN_MEAN) { // if we were previously pressing gass
+    if (velocityInPrev >= VELOCITY_IN_MID) { // if we were previously pressing gass
 
       /* If we are braking and previously weren't */
-      if (velocityIn < VELOCITY_IN_MEAN) {
+      if (velocityIn < VELOCITY_IN_MID) {
         brakeCount = brakeCount + 1;
       }
     }
 
     /* if we are pressing the gass pedal reset the braking counter */
-    if (velocityIn > VELOCITY_IN_MEAN) {
+    if (velocityIn > VELOCITY_IN_MID) {
       brakeCount = 0;
     }
     
     /* count gass */
-    if (velocityInPrev <= VELOCITY_IN_MEAN) { // if we were previously not pressing gass
+    if (velocityInPrev <= VELOCITY_IN_MID) { // if we were previously not pressing gass
 
       /* If we are braking and previously weren't */
-      if (velocityIn > (VELOCITY_IN_MEAN + 1.5*VELOCITY_IN_MARGIN) ) {
+      if (velocityIn > (VELOCITY_IN_MID + 1.5*VELOCITY_IN_MARGIN) ) {
 
         /* If within timer increment throttle count, otherwise reset */
         if (t - tThrottlePrev < DTTHROTTLE) {
@@ -265,11 +267,11 @@ void loop(void)
     velocityInPrev = velocityIn;
 
     /* convert reveiver value to desired steering angle with simple interpolation */
-    posGoal = (steerIn - STEER_IN_MEAN) * (STEERANGLEMAX - STEERANGLEMIN) / (STEER_IN_MAX - STEER_IN_MIN) + STEERANGLEAVG;
+    posGoal = (steerIn - STEER_IN_MID) * STEER_OUT_AMPLITUDE/STEER_IN_AMPLITUDE + STEER_OUT_MID;
 
     /* fitler desired steering angle */
-    posGoal = filterPosGoal * posGoal + (1 - filterPosGoal) * posGoalPrev;
-    posGoalPrev = posGoal;
+    // posGoal = filterPosGoal * posGoal + (1 - filterPosGoal) * posGoalPrev;
+    // posGoalPrev = posGoal;
 
     /* read gyro */
     sensors_event_t event;  // create sensor event
@@ -282,7 +284,7 @@ void loop(void)
     }
 
     /* compute scaling */
-    scaling = -pow(abs(posGoal / 90 - 1), scaleIntenstity) + 1; // [-] get scaling factor for error value
+    scaling = -pow(abs( (posGoal - STEER_OUT_MID)/STEER_OUT_AMPLITUDE), scaleIntenstity) + 1; // [-] get scaling factor for error value
 
     /* when we exit a corner we dont want the PID to directly kick in */
     if (scaling > scalingPrev) {
@@ -301,11 +303,11 @@ void loop(void)
 
     /* determine new setpoint */
     aServo = posGoal + errorTot;
-    if (aServo < STEERANGLEMIN) { // limit minimum angle
-      aServo = STEERANGLEMIN;
+    if (aServo < STEER_OUT_MIN) { // limit minimum angle
+      aServo = STEER_OUT_MIN;
     }
-    else if (aServo > STEERANGLEMAX) { // limit maximum angle
-      aServo = STEERANGLEMAX;
+    else if (aServo > STEER_OUT_MAX) { // limit maximum angle
+      aServo = STEER_OUT_MAX;
     }
 
     steerServo.write(aServo);
