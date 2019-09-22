@@ -1,5 +1,4 @@
 #include <SPI.h>
-
 #include <Wire.h>
 #include <Adafruit_Sensor.h>
 #include <Adafruit_LSM303_U.h>
@@ -36,13 +35,14 @@ Servo releaseServo;  // create servo object to control the release servo
 /* Steering servo angles */
 // #define STEERANGLEMIN 45 //[deg] minimum steering angle
 #define STEER_OUT_MID 107 //[deg] default steering angle
-#define STEER_OUT_AMPLITUDE 40//[deg] maximum steering angle
+#define STEER_OUT_AMPLITUDE 47//[deg] maximum steering angle
+
 #define STEER_OUT_MIN STEER_OUT_MID - STEER_OUT_AMPLITUDE
 #define STEER_OUT_MAX STEER_OUT_MID + STEER_OUT_AMPLITUDE
 // #define STEERIN2ANGLE STEERANGLEWIDTH/RECEIVEWIDTHAMPLITUDE
 
 #define RELEASE_NEUTRAL_ANGLE 155
-#define RELEASE_ACTIVATE_ANGLE 110
+#define RELEASE_ACTIVATE_ANGLE 90
 
 double filterPosGoal = 1.0; // importantance curerent value
 
