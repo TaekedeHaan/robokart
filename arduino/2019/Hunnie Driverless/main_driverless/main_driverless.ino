@@ -19,6 +19,10 @@ bool visualize = false;
 const int ECHO_PINS[Nsensors] = {4,   7,    8,    12,   A2,   A3,   A4,   A5};
 String SensorNames[Nsensors] = {"F_", "FR", "_R", "BR", "B_", "BL", "_L", "FL"};
 
+enum possible_states {FREE, FRONT, FRONT_LEFT, FRONT_RIGHT}; // enum class for possible states
+possible_states state; // Variable for current state
+const unsigned int dt_state[4] = {0, 500, 500, 500}; // Minimal time to spend in state in ms.
+
 // HD params
 double radius = 1;
 
@@ -29,10 +33,11 @@ double v_des = 0;
 double v_max = 1;
 double w_max = 1;
 
-double v_nominal = 0.8;
+double v_nominal = 1;
 double w_nominal = 1;
 
-int wheelSpeeds[2] = {0, 0};
+double wheelSpeeds[2] = {0, 0};
+const double drift_penalty = 0.9;
 
 // Initialize counters etc.
 int count = 0;
@@ -45,6 +50,7 @@ unsigned long t_sensor = 0;
 unsigned long t_main_loop = 0;
 unsigned long t_print = 0;
 unsigned long t_drive = 0;
+unsigned long t_state = 0;
 
 unsigned long dt = 0; // ??
 //unsigned long dt = 20;
@@ -69,7 +75,6 @@ int leftIndex[3] = {5, 6, 7};
 int leftSum = 0;
 int rightSum = 0;
 
-
 int dist_xp;
 int dist_xm;
 int dist_yp;
@@ -92,6 +97,9 @@ double w_cur = 0;
 // Accelerations
 double acc_max = 1;
 double w_dot_max = 1;
+
+const int PWM_MOTOR_MIN = 155;
+const int PWM_MOTOR_MAX = 255;
 
 // Tuning parameters
 double diag_sens_factor = 0.125;
@@ -134,11 +142,10 @@ double sign(double val) {
   return sgn;
 }
 
-void VW2wheelSpeeds(double v, double w, int wheelSpeeds[2]) {
-  int diff;
+void VW2wheelSpeeds(double v, double w, double wheelSpeeds[2]) {
+  double diff;
   double vL;
   double vR;
-
 
   w = min(abs(w) * radius, v_max) / radius * sign(w);
 
@@ -158,14 +165,45 @@ void VW2wheelSpeeds(double v, double w, int wheelSpeeds[2]) {
   vR = vR - diff;
 
   // store results in vector
-  wheelSpeeds[0] = (int) (vL / v_max * 255);
-  wheelSpeeds[1] = (int) (vR / v_max * 255);
+  wheelSpeeds[0] = vL; //(int) (vL / v_max * 255);
+  wheelSpeeds[1] = drift_penalty * vR; //(int) (vR / v_max * 255);
 }
 
-void writeWheelSpeeds(int wheelSpeeds[2]) {
+void writeWheelSpeeds(double wheelSpeeds[2]) {
 
-  int LW = wheelSpeeds[0];
-  int RW = -wheelSpeeds[1];
+  double vL = wheelSpeeds[0];
+  double vR = -wheelSpeeds[1];
+
+  int LW;
+  int RW;
+
+  vL = min(vL, v_max); // Maximum velocity
+  vL = max(vL, -v_max); // Maximum negative velocity
+  vL = vL / v_max; // Normalize
+  if (abs(vL) < 0.1) {
+    vL = 0; // Minimum velocity (due to hysteresis in motors etc.)
+  }
+
+  vR = min(vR, v_max); // Maximum velocity
+  vR = max(vR, -v_max); // Maximum velocity
+  vR = vR / v_max; // Normalize
+  if (abs(vR) < 0.1) {
+    vR = 0; // Minimum velocity (due to hysteresis in motors etc.)
+  }
+
+  if (abs(vL) > 0) {
+    LW = (int) (PWM_MOTOR_MIN + (PWM_MOTOR_MAX - PWM_MOTOR_MIN) * abs(vL)) * sign(vL);
+  }
+  else {
+    LW = 0;
+  }
+
+  if (abs(vR) > 0) {
+    RW = (int) (PWM_MOTOR_MIN + (PWM_MOTOR_MAX - PWM_MOTOR_MIN) * abs(vR)) * sign(vR);
+  }
+  else {
+    RW = 0;
+  }
 
   if (LW > 0) {
     digitalWrite(DIR_LEFT, LOW);
@@ -195,11 +233,13 @@ void writeWheelSpeeds(int wheelSpeeds[2]) {
   }
 }
 
-int sum_array(int theArray[], int indexVec[]){
+// TODO: Fix iets met sizeof
+int sumArray(int theArray[], int indexVec[]) {
   int sumOfVec = 0;
-  for (int index = 0; index < sizeof(indexVec); index++){
+  for (int index = 0; index < sizeof(indexVec); index++) {
     sumOfVec += theArray[indexVec[index]];
   }
+  return sumOfVec;
 }
 
 
@@ -237,25 +277,59 @@ void loop() {
   }
 
   // Time since last loop
-  dt = t - t_main_loop;
-  t_main_loop = t;
+  //  dt = t - t_main_loop;
+  //  t_main_loop = t;
 
-  if (t - t_drive > dt_drive) {
-    leftSum = sum_array(dist_filt, leftIndex);
-    rightSum = sum_array(dist_filt, rightIndex);
-    
-    if (dist_filt[0] > dist_max) {
-      v_des = v_nominal;
-      w_des = 0;
+  if (t - t_state > dt_state[state]) {
+    if (dist_filt[1] < dist_max) {
+      state = FRONT_RIGHT;
+      t_state = t;
     }
-    else if (dist_filt[1] > dist_filt[7]){
-      v_des = 0;
-      w_des = w_nominal;
+    else if (dist_filt[7] < dist_max) {
+      state = FRONT_LEFT;
+      t_state = t;
+    }
+    else if (dist_filt[0] < dist_max) {
+      state = FRONT;
+      t_state = t;
     }
     else {
-      v_des = 0;
-      w_des = -w_nominal;
+      state = FREE;
+      t_state = t;
     }
+  }
+
+  if (t - t_drive > dt_drive) {
+//    leftSum = sumArray(dist_filt, leftIndex);
+//    rightSum = sumArray(dist_filt, rightIndex);
+
+    switch (state) {
+      case FREE:
+        v_des = v_nominal;
+        w_des = 0;
+        break;
+
+      case FRONT:
+        v_des = -v_nominal;
+        w_des = w_nominal;
+        break;
+
+      case FRONT_RIGHT:
+        v_des = -v_nominal;
+        w_des = w_nominal;
+        break;
+
+      case FRONT_LEFT:
+        v_des = -v_nominal;
+        w_des = -w_nominal;
+        break;
+
+      default:
+        v_des = 1;
+        w_des = 0;
+        break;
+    }
+
 
     VW2wheelSpeeds(v_des, w_des, wheelSpeeds);
     writeWheelSpeeds(wheelSpeeds);
@@ -275,6 +349,8 @@ void loop() {
       }
       Serial.print("\n");
       Serial.print("Desired v: "); Serial.print(v_des); Serial.print("\t"); Serial.print("Desired w: "); Serial.print(w_des);
+      Serial.print("\n");
+      Serial.print("State: "); Serial.print(state); Serial.print("\t");
       Serial.print("\n");
       Serial.print("\n");
     }
