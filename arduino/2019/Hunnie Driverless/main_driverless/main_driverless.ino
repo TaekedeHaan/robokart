@@ -2,9 +2,10 @@
 #include <Servo.h>              // servo
 
 #define Nsensors 8
+#define Nstates 7
 
-bool debug = true;
-bool visualize = false;
+const bool debug = false;
+const bool visualize = false;
 
 // Pin definitions
 #define DIR_LEFT 3 // A-IB
@@ -19,9 +20,10 @@ bool visualize = false;
 const int ECHO_PINS[Nsensors] = {4,   7,    8,    12,   A2,   A3,   A4,   A5};
 String SensorNames[Nsensors] = {"F_", "FR", "_R", "BR", "B_", "BL", "_L", "FL"};
 
-enum possible_states {FREE, FRONT, FRONT_LEFT, FRONT_RIGHT}; // enum class for possible states
-possible_states state; // Variable for current state
-const unsigned int dt_state[4] = {0, 500, 500, 500}; // Minimal time to spend in state in ms.
+enum possible_states {FREE, FRONT, FRONT_LEFT, FRONT_RIGHT, BACK, BACK_LEFT, BACK_RIGHT}; // enum class for possible states
+possible_states state = 0; // Variable for current state
+possible_states prev_state = 0; // Variable for previous state
+const unsigned int dt_state[Nstates] = {0, 500, 500, 500, 250, 250, 250}; // Minimal time to spend in state in ms.
 
 // HD params
 double radius = 1;
@@ -142,6 +144,31 @@ double sign(double val) {
   return sgn;
 }
 
+possible_states pickState() {
+  if (dist_filt[1] < dist_max) {
+    state = FRONT_RIGHT;
+  }
+  else if (dist_filt[7] < dist_max) {
+    state = FRONT_LEFT;
+  }
+  else if (dist_filt[0] < dist_max) {
+    state = FRONT;
+  }
+  else if (dist_filt[5] < dist_max) {
+    state = BACK_LEFT;
+  }
+  else if (dist_filt[3] < dist_max) {
+    state = BACK_RIGHT;
+  }
+  else if  (dist_filt[4] < dist_max) {
+    state = BACK;
+  }
+  else {
+    state = FREE;
+  }
+  return state;
+}
+
 void VW2wheelSpeeds(double v, double w, double wheelSpeeds[2]) {
   double diff;
   double vL;
@@ -242,7 +269,6 @@ int sumArray(int theArray[], int indexVec[]) {
   return sumOfVec;
 }
 
-
 void loop() {
   t = millis();
 
@@ -281,27 +307,19 @@ void loop() {
   //  t_main_loop = t;
 
   if (t - t_state > dt_state[state]) {
-    if (dist_filt[1] < dist_max) {
-      state = FRONT_RIGHT;
+
+    state = pickState();
+
+    if (state != prev_state) {
       t_state = t;
+      prev_state = state;
     }
-    else if (dist_filt[7] < dist_max) {
-      state = FRONT_LEFT;
-      t_state = t;
-    }
-    else if (dist_filt[0] < dist_max) {
-      state = FRONT;
-      t_state = t;
-    }
-    else {
-      state = FREE;
-      t_state = t;
-    }
+
   }
 
   if (t - t_drive > dt_drive) {
-//    leftSum = sumArray(dist_filt, leftIndex);
-//    rightSum = sumArray(dist_filt, rightIndex);
+    //    leftSum = sumArray(dist_filt, leftIndex);
+    //    rightSum = sumArray(dist_filt, rightIndex);
 
     switch (state) {
       case FREE:
@@ -324,12 +342,26 @@ void loop() {
         w_des = -w_nominal;
         break;
 
+      case BACK_LEFT:
+        v_des = v_nominal;
+        w_des = -0.5 * w_nominal;
+        break;
+
+      case BACK_RIGHT:
+        v_des = v_nominal;
+        w_des = 0.5 * w_nominal;
+        break;
+
+      case BACK:
+        v_des = v_nominal;
+        w_des = -0.5 * w_nominal;
+        break;
+
       default:
-        v_des = 1;
+        v_des = v_nominal;
         w_des = 0;
         break;
     }
-
 
     VW2wheelSpeeds(v_des, w_des, wheelSpeeds);
     writeWheelSpeeds(wheelSpeeds);
