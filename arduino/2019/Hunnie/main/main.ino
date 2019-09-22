@@ -26,7 +26,7 @@ Servo releaseServo;  // create servo object to control the release servo
 #define VELOCITYINMAX 2000
 #define VELOCITYINMIN 1000
 #define VELOCITY_IN_MARGIN 50
-#define DTTHROTTLE 2000 // [ms]
+#define DTRELEASE 2000 // [ms]
 
 /* receiver steering PWM width */
 #define STEER_IN_MID 1437  // [us] default width receiving steering signal
@@ -41,8 +41,8 @@ Servo releaseServo;  // create servo object to control the release servo
 #define STEER_OUT_MAX STEER_OUT_MID + STEER_OUT_AMPLITUDE
 // #define STEERIN2ANGLE STEERANGLEWIDTH/RECEIVEWIDTHAMPLITUDE
 
-#define RELEASE_NEUTRAL_ANGLE 105 // 155
-#define RELEASE_ACTIVATE_ANGLE 80
+#define RELEASE_NEUTRAL_ANGLE 155
+#define RELEASE_ACTIVATE_ANGLE 110
 
 double filterPosGoal = 1.0; // importantance curerent value
 
@@ -81,7 +81,7 @@ double posGoalPrev = posGoal;     // variable to store previous pos goal
 
 /* */
 int brakeCount = 0; // brake counter
-int throttleCount = 0; // throttle counter
+int releasePhase = 0; // throttle counter
 int throttleThreshold = 3; // threshold
 
 /* Timer variables */
@@ -90,7 +90,8 @@ unsigned long tControlPrev = 0;
 unsigned long tPrintPrev = 0;
 unsigned long tGadgetsPrev = 0;
 unsigned long tBlinkPrev = 0;
-unsigned long tThrottlePrev = 0;
+unsigned long tReleasePhase = 0;
+unsigned long tBrakeCounter = 0;
 unsigned long jitter;
 
 
@@ -98,13 +99,14 @@ unsigned long jitter;
 boolean releaseWeapon = false;
 
 /* init frequencies */
-const long dtControl = 30; //20;
+const long dtControl = 20; //20;
 const long dtPrint = 500;
 const long dtBlink = 100;
 const long dtGadgets = 200;
+const long dtBrakeCounter = 100;
 //const long dtRead = 10;
 
-boolean debug = true;
+boolean debug = false;
 int ledMode = LOW;
 
 void displaySensorDetails(void)
@@ -186,9 +188,9 @@ void setup(void)
   steerServo.write(aServo);
 
   /* Release servo */
-  releaseServo.attach(RELEASEPIN); 
+  releaseServo.attach(RELEASEPIN);
   releaseServo.write(RELEASE_NEUTRAL_ANGLE);
-  
+
   delay(1000);
 
   pinMode(LED_BUILTIN, OUTPUT);
@@ -213,61 +215,38 @@ void loop(void)
       }
     }
 
-        /* updatre timing */
+    /* updatre timing */
     jitter = t - tControlPrev - dtControl;  //[ms]
     tControlPrev = t;                       //[ms]
 
     /* read receiver */
     steerIn = pulseIn(STEERIN, HIGH); //[us] read pwm pin
-    velocityIn = pulseIn(VELOCITYIN, HIGH); //[us] read pwm pin
 
     /* filter noise on steer */
     if (abs(steerIn - STEER_IN_MID) < STEER_IN_MARGIN) {
       steerIn = STEER_IN_MID;
     }
 
-    /* filter noise on velocity */
-    if (abs(velocityIn - VELOCITY_IN_MID) < VELOCITY_IN_MARGIN) {
-      velocityIn = VELOCITY_IN_MID;
+    /* shift troug release phases */
+    if ((steerIn >= STEER_IN_MID + 0.9 * STEER_IN_AMPLITUDE) && (releasePhase == 0)) { // if we were previously not pressing gass
+      releasePhase = 1;
+      tReleasePhase = t;
     }
 
-    /* count braking */
-    if (velocityInPrev >= VELOCITY_IN_MID) { // if we were previously pressing gass
-
-      /* If we are braking and previously weren't */
-      if (velocityIn < VELOCITY_IN_MID) {
-        brakeCount = brakeCount + 1;
-      }
+    if ((steerIn <= STEER_IN_MID - 0.9 * STEER_IN_AMPLITUDE) && (releasePhase == 1)) { // if we were previously not pressing gass
+      releasePhase = 2;
     }
 
-    /* if we are pressing the gass pedal reset the braking counter */
-    if (velocityIn > VELOCITY_IN_MID) {
-      brakeCount = 0;
-    }
-    
-    /* count gass */
-    if (velocityInPrev <= VELOCITY_IN_MID) { // if we were previously not pressing gass
-
-      /* If we are braking and previously weren't */
-      if (velocityIn > (VELOCITY_IN_MID + 1.5*VELOCITY_IN_MARGIN) ) {
-
-        /* If within timer increment throttle count, otherwise reset */
-        if (t - tThrottlePrev < DTTHROTTLE) {
-          throttleCount = throttleCount + 1;
-        }
-      }
+    if ((steerIn >= STEER_IN_MID + 0.9 * STEER_IN_AMPLITUDE) && (releasePhase == 2)) { // if we were previously not pressing gass
+      releasePhase = 3;
     }
 
-    if (t - tThrottlePrev > DTTHROTTLE) {
-      throttleCount = 0;
-      tThrottlePrev = t;
+    if (t - tReleasePhase > DTRELEASE) {
+      releasePhase = 0;
     }
-
-
-    velocityInPrev = velocityIn;
 
     /* convert reveiver value to desired steering angle with simple interpolation */
-    posGoal = (steerIn - STEER_IN_MID) * STEER_OUT_AMPLITUDE/STEER_IN_AMPLITUDE + STEER_OUT_MID;
+    posGoal = (steerIn - STEER_IN_MID) * STEER_OUT_AMPLITUDE / STEER_IN_AMPLITUDE + STEER_OUT_MID;
 
     /* fitler desired steering angle */
     // posGoal = filterPosGoal * posGoal + (1 - filterPosGoal) * posGoalPrev;
@@ -284,9 +263,9 @@ void loop(void)
     }
 
     /* compute scaling */
-    scaling = -pow(abs( (posGoal - STEER_OUT_MID)/STEER_OUT_AMPLITUDE), scaleIntenstity) + 1; // [-] get scaling factor for error value
+    scaling = -pow(abs( (posGoal - STEER_OUT_MID) / STEER_OUT_AMPLITUDE), scaleIntenstity) + 1; // [-] get scaling factor for error value
 
-    if (brakeCount >= 2){
+    if (brakeCount >= 2) {
       scaling = 0;
     }
 
@@ -317,15 +296,42 @@ void loop(void)
     steerServo.write(aServo);
   }
 
+  /* */
+  if ((t - tBrakeCounter) > dtBrakeCounter) {
+    tBrakeCounter = t;
+    velocityIn = pulseIn(VELOCITYIN, HIGH); //[us] read pwm pin
+
+    /* filter noise on velocity */
+    if (abs(velocityIn - VELOCITY_IN_MID) < VELOCITY_IN_MARGIN) {
+      velocityIn = VELOCITY_IN_MID;
+    }
+
+    /* count braking */
+    if (velocityInPrev >= VELOCITY_IN_MID) { // if we were previously pressing gass
+
+      /* If we are braking and previously weren't */
+      if (velocityIn < VELOCITY_IN_MID) {
+        brakeCount = brakeCount + 1;
+      }
+    }
+
+    velocityInPrev = velocityIn;
+
+    /* if we are pressing the gass pedal reset the braking counter */
+    if (velocityIn > VELOCITY_IN_MID) {
+      brakeCount = 0;
+    }
+  }
+
   /* gadgets loop */
-  if ((t - tGadgetsPrev) > dtGadgets){
+  if ((t - tGadgetsPrev) > dtGadgets) {
     tGadgetsPrev = t;
-    
-    if (throttleCount == throttleThreshold){
+
+    if (releasePhase == 3) {
       releaseWeapon = true;
     }
 
-    if (releaseWeapon){
+    if (releaseWeapon) {
       releaseServo.write(RELEASE_ACTIVATE_ANGLE);
     }
   }
@@ -340,7 +346,7 @@ void loop(void)
       Serial.print("\t");
 
       Serial.print("Throttle counter: ");
-      Serial.print(throttleCount);
+      Serial.print(releasePhase);
       Serial.print("\t");
 
       Serial.print("velocity PWM width: ");
@@ -350,7 +356,12 @@ void loop(void)
       Serial.print("Steer PWM width: ");
       Serial.print(steerIn);
       Serial.print("\t");              // prints a tab
-     Serial.println("");
+
+
+      Serial.print(F("jitter: "));
+      Serial.print(jitter);
+      Serial.print(F(" [ms]"));
+      Serial.println("");
 
 
       if (false) {
