@@ -13,6 +13,12 @@ bool visualize = false;
 #define DIR_RIGHT 6 // B-IB
 #define VEL_RIGHT 9 // B-IA
 
+#define RECEIVER_F A6
+#define RECEIVER_B A7
+
+#define RECEIVER_R A0
+#define RECEIVER_L A1
+
 #define TRIG_PIN 2 // One trigger pin for all sensors
 
 // A0 A1 receiver
@@ -45,12 +51,14 @@ unsigned long t_sensor = 0;
 unsigned long t_main_loop = 0;
 unsigned long t_print = 0;
 unsigned long t_drive = 0;
+unsigned long t_receive = 0;
 
 unsigned long dt = 0; // ??
 //unsigned long dt = 20;
 unsigned int dt_print = 1000;
 unsigned int dt_drive = 100;
 unsigned long dt_sensor = 160 / Nsensors;
+unsigned int dt_receive = 100;
 
 // Sensor range in mm
 int minRange = 5;
@@ -100,10 +108,17 @@ double orth_sens_factor = 1 - 2 * diag_sens_factor;
 void setup() {
   Serial.begin(9600);
 
+  /* motor pinmodes */  
   pinMode(DIR_LEFT, OUTPUT);
   pinMode(VEL_LEFT, OUTPUT);
   pinMode(DIR_RIGHT, OUTPUT);
   pinMode(VEL_RIGHT, OUTPUT);
+
+  /* receiver pinmodes */  
+  pinMode(RECEIVER_F, OUTPUT);
+  pinMode(RECEIVER_B, OUTPUT);
+  pinMode(RECEIVER_R, OUTPUT);
+  pinMode(RECEIVER_L, OUTPUT);
 
   // Initialize sensors
   for (int i = 0; i < Nsensors; i++) {
