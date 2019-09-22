@@ -41,7 +41,7 @@ Servo releaseServo;  // create servo object to control the release servo
 #define STEER_OUT_MAX STEER_OUT_MID + STEER_OUT_AMPLITUDE
 // #define STEERIN2ANGLE STEERANGLEWIDTH/RECEIVEWIDTHAMPLITUDE
 
-#define RELEASE_NEUTRAL_ANGLE 180
+#define RELEASE_NEUTRAL_ANGLE 155
 #define RELEASE_ACTIVATE_ANGLE 80
 
 double filterPosGoal = 1.0; // importantance curerent value
@@ -218,7 +218,7 @@ void loop(void)
     tControlPrev = t;                       //[ms]
 
     /* read receiver */
-    steerIn = pulseIn(VELOCITYIN, HIGH); //[us] read pwm pin
+    steerIn = pulseIn(STEERIN, HIGH); //[us] read pwm pin
     velocityIn = pulseIn(VELOCITYIN, HIGH); //[us] read pwm pin
 
     /* filter noise on steer */
@@ -312,7 +312,6 @@ void loop(void)
 
     steerServo.write(aServo);
   }
-
 
   /* gadgets loop */
   if ((t - tGadgetsPrev) > dtGadgets){
