@@ -3,8 +3,8 @@
 
 #define Nsensors 8
 
-bool debug = false;
-bool visualize = true;
+bool debug = true;
+bool visualize = false;
 
 // Pin definitions
 #define DIR_LEFT 3 // A-IB
@@ -30,7 +30,7 @@ double v_max = 1;
 double w_max = 1;
 
 double v_nominal = 0.8;
-double w_nominal = 0.8;
+double w_nominal = 1;
 
 int wheelSpeeds[2] = {0, 0};
 
@@ -63,11 +63,18 @@ HCSR04 *sensorArray[Nsensors];
 int distances[Nsensors];
 int dist_cur;
 int dist_filt[Nsensors];
+
+int rightIndex[3] = {1, 2, 3};
+int leftIndex[3] = {5, 6, 7};
+int leftSum = 0;
+int rightSum = 0;
+
+
 int dist_xp;
 int dist_xm;
 int dist_yp;
 int dist_ym;
-int dist_max = 200; // Safe distance from wall
+int dist_max = 300; // Safe distance from wall
 
 // Velocity variables
 double v_x_des;
@@ -157,8 +164,8 @@ void VW2wheelSpeeds(double v, double w, int wheelSpeeds[2]) {
 
 void writeWheelSpeeds(int wheelSpeeds[2]) {
 
-  int LW = 0; //wheelSpeeds[0];
-  int RW = 0;// -wheelSpeeds[1];
+  int LW = wheelSpeeds[0];
+  int RW = -wheelSpeeds[1];
 
   if (LW > 0) {
     digitalWrite(DIR_LEFT, LOW);
@@ -187,6 +194,14 @@ void writeWheelSpeeds(int wheelSpeeds[2]) {
 
   }
 }
+
+int sum_array(int theArray[], int indexVec[]){
+  int sumOfVec = 0;
+  for (int index = 0; index < sizeof(indexVec); index++){
+    sumOfVec += theArray[indexVec[index]];
+  }
+}
+
 
 void loop() {
   t = millis();
@@ -226,13 +241,20 @@ void loop() {
   t_main_loop = t;
 
   if (t - t_drive > dt_drive) {
+    leftSum = sum_array(dist_filt, leftIndex);
+    rightSum = sum_array(dist_filt, rightIndex);
+    
     if (dist_filt[0] > dist_max) {
       v_des = v_nominal;
       w_des = 0;
     }
-    else {
+    else if (dist_filt[1] > dist_filt[7]){
       v_des = 0;
       w_des = w_nominal;
+    }
+    else {
+      v_des = 0;
+      w_des = -w_nominal;
     }
 
     VW2wheelSpeeds(v_des, w_des, wheelSpeeds);

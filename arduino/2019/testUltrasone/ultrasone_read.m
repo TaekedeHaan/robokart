@@ -6,7 +6,7 @@ end
 
 %%
 % Create serial object
-COMObj = serial('COM3','BAUD', 9600);
+COMObj = serial('COM4','BAUD', 9600);
 fopen(COMObj);
 go = true;
 
@@ -44,15 +44,16 @@ yl = pos(:,2);
 % drawnow
 
 tmax = 40;
-
 Nmax = 10000;
+distMat = nan(Nmax, nSensors);
+
 
 t = zeros(Nmax,1);
 xp = zeros(Nmax,1);
 yp = zeros(Nmax,1);
 xm = zeros(Nmax,1);
 
-count = 1;
+count = 0;
 
 tic
 while toc < tmax
@@ -76,7 +77,7 @@ while toc < tmax
     row = floor(count/8) + 1;
     distMat(row,idx) = value;
     
-    if ~rem(count, nSensors) && count ~= 0
+    if ~rem(count + 1, nSensors) && count ~= 0
        h = plotMap(h, distMat(row,:));
     end
 %     switch ID
@@ -159,7 +160,7 @@ save('test_05','S')
 
 
 function h = plotMap(h,dist)
-
+disp(dist);
 angle = 0:(2*pi/8):(2*pi - pi/8);
 xl = sin(angle) .* dist;
 yl = cos(angle) .* dist;
