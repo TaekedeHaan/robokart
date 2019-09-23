@@ -4,7 +4,7 @@
 #define Nsensors 8
 #define Nstates 7
 
-const bool debug = false;
+const bool debug = true;
 const bool visualize = false;
 
 // Pin definitions
@@ -20,7 +20,12 @@ const bool visualize = false;
 #define RECEIVER_F A6
 #define RECEIVER_B A7
 
+#define WEAPON 10
+
 #define TRIG_PIN 2 // One trigger pin for all sensors
+
+#define WEAPON_MID 128// 1470
+#define WEAPON_MAX 200// [240]
 
 boolean receiver_f = false;
 boolean receiver_f_prev = false;
@@ -32,10 +37,11 @@ boolean b_override = false;
 boolean b_override_prev = false;
 boolean b_button_press = false;
 
-// A0 A1 receiver
+/* sensors */
 const int ECHO_PINS[Nsensors] = {4,   7,    8,    12,   A2,   A3,   A4,   A5};
 String SensorNames[Nsensors] = {"F_", "FR", "_R", "BR", "B_", "BL", "_L", "FL"};
 
+/* states */
 enum possible_states {FREE, FRONT, FRONT_LEFT, FRONT_RIGHT, BACK, BACK_LEFT, BACK_RIGHT}; // enum class for possible states
 possible_states state = 0; // Variable for current state
 possible_states prev_state = 0; // Variable for previous state
@@ -71,6 +77,8 @@ unsigned long t_drive = 0;
 unsigned long t_receive = 0;
 unsigned long t_state = 0;
 unsigned long t_override = 0;
+unsigned long t_weapon_phase = 0;
+unsigned long t_weapon_activate = 0;
 
 unsigned long dt = 0; // ??
 //unsigned long dt = 20;
@@ -79,10 +87,18 @@ unsigned int dt_print = 1000;
 unsigned int dt_drive = 100;
 unsigned long dt_sensor = 160 / Nsensors;
 unsigned int dt_receive = 100;
+unsigned int dt_weapon_activate = 5000;
+
 
 // Sensor range in mm
 int minRange = 5;
 int maxRange = 4000;
+
+/* Weapon */
+int weaponPhase = 0;
+unsigned int dt_weapon = 2000;
+boolean b_activate_weapon = false;
+int weapon_value = WEAPON_MID;
 
 // Array of pointers to sensor objects. (Not exactly sure how it works but it works.)
 HCSR04 *sensorArray[Nsensors];
@@ -129,6 +145,7 @@ double orth_sens_factor = 1 - 2 * diag_sens_factor;
 
 void setup() {
   Serial.begin(9600);
+  Serial.println("Serial comunication has been set up");
 
   /* motor pinmodes */
   pinMode(DIR_LEFT, OUTPUT);
@@ -142,11 +159,16 @@ void setup() {
   pinMode(RECEIVER_R, OUTPUT);
   pinMode(RECEIVER_L, OUTPUT);
 
+  pinMode(WEAPON, OUTPUT);
+  analogWrite(WEAPON, WEAPON_MID);
+
   // Initialize sensors
   for (int i = 0; i < Nsensors; i++) {
     pinMode(ECHO_PINS[i], INPUT);
     sensorArray[i] = new HCSR04(TRIG_PIN, ECHO_PINS[i], minRange, maxRange);
   }
+
+  Serial.println("Initialization finished!");
 }
 
 // Helper functions
@@ -287,15 +309,6 @@ void writeWheelSpeeds(double wheelSpeeds[2]) {
   }
 }
 
-// TODO: Fix iets met sizeof
-int sumArray(int theArray[], int indexVec[]) {
-  int sumOfVec = 0;
-  for (int index = 0; index < sizeof(indexVec); index++) {
-    sumOfVec += theArray[indexVec[index]];
-  }
-  return sumOfVec;
-}
-
 void loop() {
   t = millis();
 
@@ -307,6 +320,7 @@ void loop() {
     receiver_r = digitalRead(RECEIVER_R) == HIGH;
     receiver_l = digitalRead(RECEIVER_L) == HIGH;
 
+    /* DETECT MANUAL OVERRIDE */
     b_override = receiver_f || receiver_b;
     b_button_press = receiver_f || receiver_b || receiver_r || receiver_l;
 
@@ -320,17 +334,27 @@ void loop() {
 
     b_override_prev = b_override;
 
-    /* if (~receiver_f_prev) {
-      if (receiver_f)
-        t_override = t;
-      }
+    /* DETECT WEAPON ACTIVATION */
+    /* shift troug release phases */
+    if ((receiver_r) && (weaponPhase == 0) && (~b_override)) { // if we were previously not pressing gass
+      weaponPhase = 1;
+      t_weapon_phase = t;
+    }
 
-      if ((receiver_f) && (t - t_override > dt_override)) {
-      b_override = true;
-      }
+    if ((receiver_l) && (weaponPhase == 1)) { // if we were previously not pressing gass
+      weaponPhase = 2;
+    }
 
-      receiver_f_prev = receiver_f;
-    */
+    if ((receiver_r) && (weaponPhase == 2) && (~b_activate_weapon)) { // if we were previously not pressing gass
+      weaponPhase = 3;
+      t_weapon_activate = t;
+      b_activate_weapon = true;
+    }
+
+    if (t - t_weapon_phase > dt_weapon) {
+      weaponPhase = 0;
+    }
+
   }
 
   // read sensor
@@ -363,10 +387,6 @@ void loop() {
     }
   }
 
-  // Time since last loop
-  //  dt = t - t_main_loop;
-  //  t_main_loop = t;
-
   if (t - t_state > dt_state[state]) {
 
     state = pickState();
@@ -379,8 +399,7 @@ void loop() {
   }
 
   if (t - t_drive > dt_drive) {
-    //    leftSum = sumArray(dist_filt, leftIndex);
-    //    rightSum = sumArray(dist_filt, rightIndex);
+
     if (b_override) {
       if (receiver_f) {
         v_des = v_nominal;
@@ -448,7 +467,31 @@ void loop() {
 
     VW2wheelSpeeds(v_des, w_des, wheelSpeeds);
     writeWheelSpeeds(wheelSpeeds);
+
+    if (b_activate_weapon && ((t - t_weapon_activate) < dt_weapon_activate)) {
+      weapon_value = WEAPON_MID + ((WEAPON_MAX - WEAPON_MID) * (t - t_weapon_activate)) / dt_weapon_activate;
+      analogWrite(WEAPON, weapon_value);
+      Serial.print("ACCELERATE WEAPON: "); Serial.println(weapon_value);
+    }
+    else if (b_activate_weapon && ((t - t_weapon_activate) < 2 * dt_weapon_activate)) {
+      weapon_value = WEAPON_MAX;
+      analogWrite(WEAPON, weapon_value);
+      Serial.print("HOLDING WEAPON: "); Serial.println(weapon_value);
+    }
+    else if (b_activate_weapon && ((t - t_weapon_activate) < 3 * dt_weapon_activate)) {
+      weapon_value--; //WEAPON_MAX + ((WEAPON_MID - WEAPON_MAX) * (t - t_weapon_activate - 2 * dt_weapon_activate)) / dt_weapon_activate;
+      weapon_value = max(weapon_value, WEAPON_MID);
+      analogWrite(WEAPON, weapon_value);
+      Serial.print("DEACCELERATE WEAPON: "); Serial.println(weapon_value);
+    }
+    else {
+      weapon_value = WEAPON_MID;
+      analogWrite(WEAPON, weapon_value);
+      b_activate_weapon = false;
+      Serial.println("RESET WEAPON: "); Serial.println(weapon_value);
+    }
   }
+
 
   if (debug) {
     if (t - t_print > dt_print) {
@@ -473,7 +516,11 @@ void loop() {
       Serial.print("receiver left: "); Serial.print(receiver_l); Serial.print("\t");
       Serial.println();
       Serial.print("Manual override: "); Serial.print(b_override);
-      Serial.print("\n");
+      Serial.println();
+      Serial.print("Activate weapon phase: "); Serial.print(weaponPhase); Serial.print("\t");
+      Serial.print("Activate weapon: "); Serial.print(b_activate_weapon); Serial.print("\t");
+      Serial.println();
+      Serial.println();
 
 
     }
